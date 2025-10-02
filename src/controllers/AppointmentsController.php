@@ -37,7 +37,7 @@ class AppointmentsController {
         if ($data['vet_id'] <= 0) $errors[] = 'Veterinário obrigatório';
         if (!$data['start_time'] || !$data['end_time']) $errors[] = 'Horários obrigatórios';
         if (AppointmentModel::hasConflict($data['vet_id'], $data['room'], $data['start_time'], $data['end_time'])) {
-            $errors[] = 'Conflito na agenda (veterinário/sala)';
+            $errors[] = 'Já existe um agendamento para este veterinário neste horário. Escolha outra data ou hora.';
         }
         if ($errors) {
             $from = ''; $to = ''; $vet = null; $items = AppointmentModel::list('', '', null);
@@ -63,8 +63,10 @@ class AppointmentsController {
         $stmt->execute([':id'=>$id]);
         $vetId = (int)$stmt->fetchColumn();
         if (AppointmentModel::hasConflict($vetId, $room, $start, $end, $id)) {
-            http_response_code(400);
-            exit('Conflito na agenda');
+            $from = ''; $to = ''; $vet = null; $items = AppointmentModel::list('', '', null);
+            $flash_error = 'Já existe um agendamento para este veterinário neste horário. Escolha outra data ou hora.';
+            render('appointments/index', compact('items','from','to','vet','flash_error'));
+            return;
         }
         AppointmentModel::updateTimes($id, $start, $end, $room);
         audit_log($_SESSION['user']['id'] ?? null, 'appointment_move', 'appointments', $id, json_encode(['start'=>$start,'end'=>$end,'room'=>$room]));
@@ -75,6 +77,17 @@ class AppointmentsController {
         require_login();
         require_role(['admin','recepcao','veterinario']);
         csrf_validate();
+        // Check current status to avoid double cancel
+        $pdo = DB::getConnection();
+        $stmt = $pdo->prepare('SELECT status FROM appointments WHERE id = :id');
+        $stmt->execute([':id'=>$id]);
+        $status = $stmt->fetchColumn();
+        if ($status === 'cancelada') {
+            $from = ''; $to = ''; $vet = null; $items = AppointmentModel::list('', '', null);
+            $flash_error = 'Agendamento já está cancelado.';
+            render('appointments/index', compact('items','from','to','vet','flash_error'));
+            return;
+        }
         AppointmentModel::cancel($id);
         audit_log($_SESSION['user']['id'] ?? null, 'appointment_cancel', 'appointments', $id);
         header('Location: ' . APP_URL . '/agenda');

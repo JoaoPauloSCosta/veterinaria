@@ -14,7 +14,12 @@
     <input type="date" class="form-control" name="to" value="<?= e($to ?? '') ?>">
   </div>
   <div class="col-auto">
-    <input type="number" class="form-control" name="vet" placeholder="ID do Vet" value="<?= e($vet ?? '') ?>">
+    <select class="form-select" name="vet">
+      <option value="">Todos os veterinários</option>
+      <?php foreach (($vets ?? []) as $v): ?>
+        <option value="<?= e($v['id']) ?>" <?= ($vet ?? null) == $v['id'] ? 'selected' : '' ?>><?= e($v['name']) ?> (<?= e($v['email']) ?>)</option>
+      <?php endforeach; ?>
+    </select>
   </div>
   <div class="col-auto">
     <button class="btn btn-outline-secondary">Filtrar</button>

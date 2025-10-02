@@ -36,7 +36,9 @@ $user = $_SESSION['user'] ?? null;
             <li class="nav-item"><a class="nav-link" href="<?= e(APP_URL) ?>/sales/pos">PDV</a></li>
           <?php endif; ?>
           <li class="nav-item"><a class="nav-link" href="#">Relatórios</a></li>
-          <li class="nav-item"><a class="nav-link" href="#">Configurações</a></li>
+          <?php if (($user['role'] ?? '') === 'admin'): ?>
+            <li class="nav-item"><a class="nav-link" href="<?= e(APP_URL) ?>/settings">Configurações</a></li>
+          <?php endif; ?>
         <?php endif; ?>
       </ul>
       <!-- Área direita: nome do usuário e sair -->

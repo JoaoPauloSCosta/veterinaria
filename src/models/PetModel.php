@@ -19,14 +19,20 @@ class PetModel {
         $where = '';
         $params = [];
         if ($q !== '') {
-            $where = 'WHERE p.name LIKE :q OR c.name LIKE :q';
-            $params[':q'] = "%$q%";
+            $where = 'WHERE p.name LIKE :q1 OR c.name LIKE :q2';
+            $params[':q1'] = "%$q%";
+            $params[':q2'] = "%$q%";
         }
-        $sql = "SELECT SQL_CALC_FOUND_ROWS p.*, c.name AS client_name FROM pets p JOIN clients c ON c.id = p.client_id $where ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset";
+        $limitI = max(1, (int)$limit);
+        $offsetI = max(0, (int)$offset);
+        $sql = "SELECT SQL_CALC_FOUND_ROWS p.*, c.name AS client_name
+                FROM pets p
+                JOIN clients c ON c.id = p.client_id
+                $where
+                ORDER BY p.created_at DESC
+                LIMIT $limitI OFFSET $offsetI";
         $stmt = $pdo->prepare($sql);
         foreach ($params as $k=>$v) { $stmt->bindValue($k, $v, PDO::PARAM_STR); }
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
         $rows = $stmt->fetchAll();
         $total = (int)$pdo->query('SELECT FOUND_ROWS()')->fetchColumn();

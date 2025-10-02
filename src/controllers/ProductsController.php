@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../middlewares/auth.php';
 require_once __DIR__ . '/../helpers/validation.php';
+require_once __DIR__ . '/../helpers/errors.php';
 require_once __DIR__ . '/../helpers/stock.php';
 require_once __DIR__ . '/../models/ProductModel.php';
 
@@ -33,9 +34,16 @@ class ProductsController {
             render('products/index', compact('products','low','flash_error'));
             return;
         }
-        $id = ProductModel::create($data);
-        audit_log($_SESSION['user']['id'] ?? null, 'product_create', 'products', $id, json_encode($data));
-        header('Location: ' . APP_URL . '/products');
+        try {
+            $id = ProductModel::create($data);
+            audit_log($_SESSION['user']['id'] ?? null, 'product_create', 'products', $id, json_encode($data));
+            header('Location: ' . APP_URL . '/products');
+        } catch (Throwable $e) {
+            [$products, $total] = ProductModel::paginate('', 100, 0);
+            $low = ProductModel::lowStock();
+            $flash_error = friendly_pdo_message($e, 'produto');
+            render('products/index', compact('products','low','flash_error'));
+        }
     }
 
     public static function edit(int $id): void {
@@ -49,9 +57,16 @@ class ProductsController {
             'min_stock_level' => (int)($_POST['min_stock_level'] ?? 0),
             'is_service' => !empty($_POST['is_service']),
         ];
-        ProductModel::update($id, $data);
-        audit_log($_SESSION['user']['id'] ?? null, 'product_update', 'products', $id, json_encode($data));
-        header('Location: ' . APP_URL . '/products');
+        try {
+            ProductModel::update($id, $data);
+            audit_log($_SESSION['user']['id'] ?? null, 'product_update', 'products', $id, json_encode($data));
+            header('Location: ' . APP_URL . '/products');
+        } catch (Throwable $e) {
+            [$products, $total] = ProductModel::paginate('', 100, 0);
+            $low = ProductModel::lowStock();
+            $flash_error = friendly_pdo_message($e, 'produto');
+            render('products/index', compact('products','low','flash_error'));
+        }
     }
 
     public static function delete(int $id): void {

@@ -11,6 +11,7 @@ require_once __DIR__ . '/src/controllers/ProductsController.php';
 require_once __DIR__ . '/src/controllers/RecordsController.php';
 require_once __DIR__ . '/src/controllers/SalesController.php';
 require_once __DIR__ . '/src/controllers/UsersController.php';
+require_once __DIR__ . '/src/controllers/SettingsController.php';
 require_once __DIR__ . '/src/controllers/PasswordController.php';
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -163,6 +164,18 @@ switch (true) {
     case $path === '/sales/checkout' && $method === 'POST':
         SalesController::checkout();
         break;
+    
+    // Settings (Admin only)
+    case $path === '/settings' && $method === 'GET':
+        SettingsController::index();
+        break;
+    case $path === '/settings/save' && $method === 'POST':
+        SettingsController::save();
+        break;
+    case $path === '/settings/reset' && $method === 'POST':
+        SettingsController::reset();
+        break;
+
     
     // Admin - Users routes
     case $path === '/users/new' && $method === 'GET':

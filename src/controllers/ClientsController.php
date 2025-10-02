@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../middlewares/auth.php';
 require_once __DIR__ . '/../helpers/validation.php';
+require_once __DIR__ . '/../helpers/errors.php';
 require_once __DIR__ . '/../models/ClientModel.php';
 
 class ClientsController {
@@ -34,9 +35,16 @@ class ClientsController {
             render('clients/index', compact('clients','q','total','flash_error'));
             return;
         }
-        $id = ClientModel::create($data);
-        audit_log($_SESSION['user']['id'] ?? null, 'client_create', 'clients', $id, json_encode($data));
-        header('Location: ' . APP_URL . '/clients');
+        try {
+            $id = ClientModel::create($data);
+            audit_log($_SESSION['user']['id'] ?? null, 'client_create', 'clients', $id, json_encode($data));
+            header('Location: ' . APP_URL . '/clients');
+        } catch (Throwable $e) {
+            $q = '';
+            [$clients, $total] = ClientModel::paginate('', 50, 0);
+            $flash_error = friendly_pdo_message($e, 'cliente');
+            render('clients/index', compact('clients','q','total','flash_error'));
+        }
     }
 
     public static function edit(int $id): void {
@@ -60,9 +68,15 @@ class ClientsController {
             render('clients/edit', compact('client','flash_error'));
             return;
         }
-        ClientModel::update($id, $data);
-        audit_log($_SESSION['user']['id'] ?? null, 'client_update', 'clients', $id, json_encode($data));
-        header('Location: ' . APP_URL . '/clients');
+        try {
+            ClientModel::update($id, $data);
+            audit_log($_SESSION['user']['id'] ?? null, 'client_update', 'clients', $id, json_encode($data));
+            header('Location: ' . APP_URL . '/clients');
+        } catch (Throwable $e) {
+            $client = ClientModel::find($id);
+            $flash_error = friendly_pdo_message($e, 'cliente');
+            render('clients/edit', compact('client','flash_error'));
+        }
     }
 
     public static function delete(int $id): void {
@@ -99,8 +113,13 @@ class ClientsController {
                 'address' => sanitize_string($data['address'] ?? ''),
             ];
             if ($payload['name'] === '' || !validate_email($payload['email']) || !validate_cpf_cnpj($payload['cpf_cnpj'])) continue;
-            $id = ClientModel::create($payload);
-            $count++;
+            try {
+                $id = ClientModel::create($payload);
+                $count++;
+            } catch (Throwable $e) {
+                // ignora duplicidades de CPF/E-mail durante importação
+                continue;
+            }
         }
         fclose($h);
         audit_log($_SESSION['user']['id'] ?? null, 'client_import_csv', 'clients', null, 'count='.$count);
