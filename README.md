@@ -37,12 +37,6 @@ checklist_deploy.md
 4. Ajuste `config.php` com credenciais do banco (DB_HOST, DB_NAME, DB_USER, DB_PASS) e defina `APP_URL`.
 5. Garanta permissões de escrita nas pastas: `uploads/` e `logs/`.
 
-## Primeiros passos
-- Acesse: `APP_URL/login`
-- Usuário admin (seed):
-  - email: `admin@clinic.local`
-  - senha: `Admin@123`
-
 ## Funcionalidades já implementadas
 - Autenticação (login/logout) com `password_hash`/`verify`.
 - Controle de sessão, CSRF token e escaping com `htmlspecialchars`.
