@@ -1,0 +1,10 @@
+body { background-color: #f8f9fa; }
+.navbar-brand { font-weight: 600; }
+.card-title { font-weight: 600; }
+
+/* Top action buttons (keeps Bootstrap colors/hover) */
+.btn-top {
+  border-radius: 12px !important;
+  padding: 0.5rem 1rem !important; /* balanced size like screenshot */
+  font-weight: 500;
+}

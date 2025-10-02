@@ -1,0 +1,10 @@
+RewriteEngine On
+Options -Multiviews
+
+# Se você não usa VirtualHost e a app está em /veterinaria/public,
+# normalmente não precisa do RewriteBase. Se quiser, pode usar:
+# RewriteBase /veterinaria/public/
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [L]
