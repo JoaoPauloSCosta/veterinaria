@@ -1,0 +1,51 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE/Editor
+.vscode/
+.idea/
+*.code-workspace
+
+# PHP/Composer
+vendor/
+composer.lock
+composer.phar
+
+# Node/Web build
+node_modules/
+dist/
+build/
+.cache/
+*.log
+
+# Env/Secrets
+.env
+.env.*
+config.local.php
+*.key
+*.pem
+
+# App runtime
+storage/
+logs/
+tmp/
+cache/
+session/
+
+# Uploads (keep structure, ignore files)
+public/uploads/*
+!public/uploads/.gitkeep
+
+# SQL and DB dumps (DO NOT VERSION)
+sql/
+*.sql
+*.sqlite
+*.db
+
+# Misc
+coverage/
+*.swp
+
+# config.php
+config.php
