@@ -1,6 +1,10 @@
 <?php
 require_once __DIR__ . '/../../config.php';
 
+/**
+ * Escapa valores para HTML com segurança
+ * Aceita arrays/objetos serializando para JSON
+ */
 function e($value): string {
     if ($value === null) {
         return '';
@@ -11,6 +15,10 @@ function e($value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+/**
+ * Gera/retorna token CSRF armazenado em sessão
+ * Inicia sessão se necessário
+ */
 function csrf_token(): string {
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
@@ -21,10 +29,18 @@ function csrf_token(): string {
     return $_SESSION[CSRF_TOKEN_NAME];
 }
 
+/**
+ * Retorna input HTML hidden com token CSRF
+ * Compatível com forms POST
+ */
 function csrf_input(): string {
     return '<input type="hidden" name="' . e(CSRF_TOKEN_NAME) . '" value="' . e(csrf_token()) . '">';
 }
 
+/**
+ * Valida token CSRF em requisições POST
+ * Retorna 400 e encerra se inválido
+ */
 function csrf_validate(): void {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -38,6 +54,10 @@ function csrf_validate(): void {
     }
 }
 
+/**
+ * Valida upload: tamanho, MIME e extensão
+ * Retorna [ok, novoNome, mime] ou [false, mensagem]
+ */
 function validate_upload(array $file, array $allowedMime = UPLOAD_ALLOWED_TYPES, array $allowedExt = UPLOAD_ALLOWED_EXTENSIONS): array {
     if ($file['error'] !== UPLOAD_ERR_OK) {
         return [false, 'Erro no upload.'];
@@ -58,6 +78,10 @@ function validate_upload(array $file, array $allowedMime = UPLOAD_ALLOWED_TYPES,
     return [true, $newName, $mime];
 }
 
+/**
+ * Registra ação no log de auditoria com IP
+ * Ignora erros silenciosamente para não quebrar fluxo
+ */
 function audit_log(?int $userId, string $action, ?string $entity = null, ?int $entityId = null, ?string $details = null): void {
     try {
         $pdo = DB::getConnection();

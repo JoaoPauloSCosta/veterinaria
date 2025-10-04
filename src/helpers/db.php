@@ -6,6 +6,10 @@ class DB {
 
     private function __construct() {}
 
+    /**
+     * Retorna conexão PDO singleton com configurações seguras
+     * Trata erros conforme ambiente e força modos de erro e fetch
+     */
     public static function getConnection(): PDO {
         if (self::$instance === null) {
             $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;

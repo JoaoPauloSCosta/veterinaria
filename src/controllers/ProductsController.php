@@ -6,15 +6,29 @@ require_once __DIR__ . '/../helpers/stock.php';
 require_once __DIR__ . '/../models/ProductModel.php';
 
 class ProductsController {
+    /**
+     * Lista produtos/serviços com filtros e paginação
+     * Mostra itens com baixo estoque e renderiza a view
+     */
     public static function index(): void {
         require_login();
         require_role(['admin','recepcao','veterinario','financeiro']);
         $q = sanitize_string($_GET['q'] ?? '');
-        [$products, $total] = ProductModel::paginate($q, 100, 0);
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
+        
+        [$products, $total] = ProductModel::paginate($q, $limit, $offset);
+        $totalPages = ceil($total / $limit);
         $low = ProductModel::lowStock();
-        render('products/index', compact('products','q','total','low'));
+        
+        render('products/index', compact('products','q','total','low', 'page', 'totalPages', 'limit'));
     }
 
+    /**
+     * Cria novo produto/serviço com validação de campos
+     * Em erro, exibe listagem com mensagem; registra auditoria
+     */
     public static function create(): void {
         require_login();
         require_role(['admin']);
@@ -46,6 +60,10 @@ class ProductsController {
         }
     }
 
+    /**
+     * Atualiza produto/serviço; exige perfil admin e CSRF
+     * Em erro, retorna à listagem com mensagem; registra auditoria
+     */
     public static function edit(int $id): void {
         require_login();
         require_role(['admin']);
@@ -69,6 +87,10 @@ class ProductsController {
         }
     }
 
+    /**
+     * Exclui produto/serviço; exige perfil admin e CSRF
+     * Registra auditoria e redireciona para listagem
+     */
     public static function delete(int $id): void {
         require_login();
         require_role(['admin']);
@@ -78,6 +100,10 @@ class ProductsController {
         header('Location: ' . APP_URL . '/products');
     }
 
+    /**
+     * Lança entrada de estoque manual para um produto
+     * Ajusta saldo e registra auditoria; exige perfis admin/financeiro
+     */
     public static function stockEntry(): void {
         require_login();
         require_role(['admin','financeiro']);
@@ -91,6 +117,10 @@ class ProductsController {
         header('Location: ' . APP_URL . '/products');
     }
 
+    /**
+     * Lança saída de estoque manual para um produto
+     * Ajusta saldo e registra auditoria; exige perfis admin/financeiro
+     */
     public static function stockExit(): void {
         require_login();
         require_role(['admin','financeiro']);

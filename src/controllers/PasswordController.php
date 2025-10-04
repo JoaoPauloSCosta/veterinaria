@@ -4,6 +4,10 @@ require_once __DIR__ . '/../helpers/security.php';
 require_once __DIR__ . '/../middlewares/auth.php';
 
 class PasswordController {
+    /**
+     * Gera token de redefinição de senha e salva com expiração
+     * Aplica CSRF; registra auditoria e exibe link de redefinição
+     */
     public static function requestReset(): void {
         csrf_validate();
         $email = trim($_POST['email'] ?? '');
@@ -18,11 +22,19 @@ class PasswordController {
         render('auth/reset_link', compact('link'));
     }
 
+    /**
+     * Exibe formulário para definir nova senha usando token fornecido
+     * Encaminha token para a view sem validação
+     */
     public static function showNew(): void {
         $token = trim($_GET['token'] ?? '');
         render('auth/reset_new', compact('token'));
     }
 
+    /**
+     * Valida token, define nova senha e invalida o token usado
+     * Aplica CSRF e critérios mínimos; registra auditoria e redireciona
+     */
     public static function setNew(): void {
         csrf_validate();
         $token = trim($_POST['token'] ?? '');

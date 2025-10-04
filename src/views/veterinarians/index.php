@@ -1,346 +1,161 @@
-<?php
-// Lista e formulário de veterinários com campos de perfil, especialidades e unidades
-?>
-<div class="container my-4">
-  <h2>Veterinários</h2>
-
-  <?php if (!empty($flash_success)): ?>
-    <div class="alert alert-success" role="alert"><?php echo htmlspecialchars($flash_success); ?></div>
-  <?php endif; ?>
-  <?php if (!empty($flash_error ?? '')): ?>
-    <div class="alert alert-danger" role="alert"><?php echo htmlspecialchars($flash_error); ?></div>
-  <?php endif; ?>
-
-  <form class="row g-2 mb-3" method="get" action="<?php echo APP_URL; ?>/veterinarians">
-    <div class="col-auto">
-      <input type="text" name="q" class="form-control" placeholder="Pesquisar por nome ou e-mail" value="<?php echo htmlspecialchars($q ?? ''); ?>">
-    </div>
-    <div class="col-auto">
-      <button class="btn btn-primary" type="submit">Pesquisar</button>
-    </div>
-    <div class="col-auto ms-auto">
-      <button class="btn btn-success" type="button" data-bs-toggle="modal" data-bs-target="#newVeterinarianModal">Novo Veterinário</button>
-    </div>
-  </form>
-
-  <div class="table-responsive">
-    <table class="table table-striped align-middle">
-      <thead>
-        <tr>
-          <th>Nome</th>
-          <th>E-mail</th>
-          <th>Especialidades</th>
-          <th>Ativo</th>
-          <th>CRMV</th>
-          <th class="text-end">Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php if (!empty($vets)): ?>
-          <?php foreach ($vets as $v): ?>
-            <tr>
-              <td><?php echo htmlspecialchars($v['name']); ?></td>
-              <td><?php echo htmlspecialchars($v['email']); ?></td>
-              <td>
-                <?php
-                  $uid = (int)$v['id'];
-                  // Normaliza vetSpecialties para sempre virar um array de IDs inteiros
-                  $rawSpecs = $vetSpecialties[$uid] ?? [];
-                  $specIds = [];
-                  foreach ($rawSpecs as $item) {
-                    if (is_array($item)) {
-                      $specIds[] = (int)($item['specialty_id'] ?? $item['id'] ?? 0);
-                    } else {
-                      $specIds[] = (int)$item;
-                    }
-                  }
-                  $specIds = array_values(array_filter($specIds));
-
-                  // Mapeia nomes das especialidades pelo ID
-                  $specNames = [];
-                  foreach (($specialties ?? []) as $sp) {
-                    if (in_array((int)$sp['id'], $specIds, true)) { $specNames[] = $sp['name']; }
-                  }
-
-                  if (empty($specNames)) {
-                    echo '—';
-                  } else {
-                    $firstTwo = array_slice($specNames, 0, 2);
-                    $remaining = max(count($specNames) - 2, 0);
-                    $display = implode(', ', $firstTwo);
-                    if ($remaining > 0) { $display .= ' +' . $remaining; }
-                    $full = implode(', ', $specNames);
-                    echo '<span title="'.htmlspecialchars($full).'">'.htmlspecialchars($display).'</span>';
-                  }
-                ?>
-              </td>
-              <td>
-                <?php if (!empty($v['is_active'])): ?>
-                  <span class="badge bg-success">Ativo</span>
-                <?php else: ?>
-                  <span class="badge bg-secondary">Inativo</span>
-                <?php endif; ?>
-              </td>
-              <td><?php echo htmlspecialchars($v['crmv'] ?? ''); ?></td>
-              <td class="text-end">
-                <div class="d-inline-flex align-items-center gap-1">
-                  <button class="btn btn-sm btn-secondary" data-bs-toggle="modal" data-bs-target="#editVeterinarianModal_<?php echo (int)$v['id']; ?>">
-                    <i class="fa-regular fa-pen-to-square"></i> Editar
-                  </button>
-                  <form method="post" action="<?php echo APP_URL; ?>/veterinarians/<?php echo (int)$v['id']; ?>/delete" class="d-inline m-0" onsubmit="return confirm('Excluir este veterinário?');">
-                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-                    <button type="submit" class="btn btn-sm btn-danger">
-                      <i class="fa-regular fa-trash-can"></i> Excluir
-                    </button>
-                  </form>
-                </div>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        <?php else: ?>
-          <tr><td colspan="6" class="text-center">Nenhum veterinário encontrado.</td></tr>
-        <?php endif; ?>
-      </tbody>
-    </table>
+<?php require_login(); ?>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>Veterinários</h3>
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary btn-top" data-bs-toggle="modal" data-bs-target="#vetModal">Novo Veterinário</button>
   </div>
-
-  <!-- Modal: Novo Veterinário -->
-  <div class="modal fade" id="newVeterinarianModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Novo Veterinário</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <form method="post" action="<?php echo APP_URL; ?>/veterinarians/create">
-          <div class="modal-body">
-            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-
-            <div class="row g-3">
-              <div class="col-md-6">
-                <label class="form-label">Nome</label>
-                <input type="text" name="name" class="form-control" required>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">E-mail (login)</label>
-                <input type="email" name="email" class="form-control" required>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Senha (mín. 6 caracteres)</label>
-                <input type="password" name="password" class="form-control" minlength="6" required>
-              </div>
-              <div class="col-md-6 d-flex align-items-end">
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" value="1" id="new_is_active" name="is_active" checked>
-                  <label class="form-check-label" for="new_is_active">Ativo</label>
+  </div>
+<?php if (!empty($flash_error)): ?>
+  <div class="alert alert-danger" role="alert" data-autohide="true"><?= e($flash_error) ?></div>
+<?php endif; ?>
+<?php if (!empty($flash_success)): ?>
+  <div class="alert alert-success" role="alert" data-autohide="true"><?= e($flash_success) ?></div>
+<?php endif; ?>
+<form class="row g-2 mb-3" method="get" action="<?= e(APP_URL) ?>/veterinarians">
+  <div class="col-auto">
+    <input type="text" class="form-control" name="q" placeholder="Buscar por nome ou email" value="<?= e($q ?? '') ?>">
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-outline-secondary">Buscar</button>
+  </div>
+</form>
+<div class="table-responsive">
+<table class="table table-striped table-hover align-middle">
+  <thead><tr>
+    <th>ID</th><th>Nome</th><th>Email</th><th>Especialidades</th><th>Ativo</th><th class="text-end">Ações</th>
+  </tr></thead>
+  <tbody>
+    <?php $modals = ''; ?>
+    <?php foreach (($vets ?? []) as $v): ?>
+      <tr>
+        <td><?= e($v['id']) ?></td>
+        <td><?= e($v['name']) ?></td>
+        <td><?= e($v['email']) ?></td>
+        <?php
+          $specsRaw = $v['specialties'] ?? '';
+          $specs = is_array($specsRaw) ? $specsRaw : ((is_string($specsRaw) && $specsRaw !== '') ? array_map('trim', explode(',', $specsRaw)) : []);
+          $shown = array_slice($specs, 0, 2);
+          $more = max(count($specs) - 2, 0);
+        ?>
+        <td><?= $shown ? implode(', ', array_map('e', $shown)) . ($more > 0 ? ' +' . e((string)$more) : '') : '—' ?></td>
+        <td><?= !empty($v['is_active']) ? 'Sim' : 'Não' ?></td>
+        <td class="text-end">
+          <div class="d-inline-flex align-items-center gap-1">
+            <button class="btn btn-sm btn-secondary" data-bs-toggle="modal" data-bs-target="#vetModalEdit<?= e($v['id']) ?>"><i class="fa-regular fa-pen-to-square"></i> Editar</button>
+            <form action="<?= e(APP_URL) ?>/veterinarians/<?= e($v['id']) ?>/delete" method="post" class="d-inline m-0" onsubmit="return confirm('Excluir veterinário?');">
+              <?= csrf_input() ?>
+              <button class="btn btn-sm btn-danger"><i class="fa-regular fa-trash-can"></i> Excluir</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      <?php ob_start(); ?>
+      <div class="modal fade" id="vetModalEdit<?= e($v['id']) ?>" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Editar Veterinário</h5>
+              <button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+              <form method="post" action="<?= e(APP_URL) ?>/veterinarians/<?= e($v['id']) ?>/edit">
+                <?= csrf_input() ?>
+                <div class="row g-3">
+                  <div class="col-md-6"><label class="form-label">Nome</label><input name="name" class="form-control" required value="<?= e($v['name']) ?>"></div>
+                  <div class="col-md-6"><label class="form-label">Email</label><input type="email" name="email" class="form-control" required value="<?= e($v['email']) ?>"></div>
+                  <div class="col-md-6"><label class="form-label">Senha (opcional)</label><input type="password" name="password" class="form-control" placeholder="Mín. 6 caracteres"></div>
+                  <div class="col-md-6 d-flex align-items-center"><div class="form-check mt-4">
+                     <input class="form-check-input" type="checkbox" name="is_active" id="vetActive<?= e($v['id']) ?>" <?= !empty($v['is_active']) ? 'checked' : '' ?>>
+                     <label class="form-check-label" for="vetActive<?= e($v['id']) ?>">Ativo</label>
+                   </div></div>
+                  <div class="col-md-12"><label class="form-label">Especialidades</label>
+                    <select name="specialties[]" class="form-select" multiple size="6">
+                      <?php foreach (($specialties ?? []) as $s): $sid = (int)$s['id']; $selected = in_array($sid, ($v['specialty_ids'] ?? []), true); ?>
+                        <option value="<?= e((string)$sid) ?>" <?= $selected ? 'selected' : '' ?>><?= e($s['name']) ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                    <small class="text-muted">Segure Ctrl (Windows) para múltiplas seleções.</small>
+                  </div>
+                  <div class="col-md-6"><label class="form-label">Celular</label><input name="mobile_phone" class="form-control" value="<?= e($v['mobile_phone'] ?? '') ?>" placeholder="(DD) 9XXXX-XXXX"></div>
+                  <div class="col-md-6"><label class="form-label">Telefone Fixo</label><input name="landline_phone" class="form-control" value="<?= e($v['landline_phone'] ?? '') ?>" placeholder="(DD) XXXX-XXXX"></div>
+                  <div class="col-md-6"><label class="form-label">Email Profissional</label><input type="email" name="professional_email" class="form-control" value="<?= e($v['professional_email'] ?? '') ?>" placeholder="nome@empresa.com"></div>
+                  <div class="col-md-6"><label class="form-label">CRMV</label><input name="crmv" class="form-control" value="<?= e($v['crmv'] ?? '') ?>" placeholder="12345"></div>
+                  <div class="col-md-3"><label class="form-label">UF</label><input name="crmv_uf" maxlength="2" class="form-control" value="<?= e($v['crmv_uf'] ?? '') ?>" placeholder="SP"></div>
+                  <div class="col-md-3"><label class="form-label">Tipo de Contrato</label>
+                    <select name="employment_type" class="form-select">
+                      <option value="">—</option>
+                      <option value="CLT" <?= (($v['employment_type'] ?? '') === 'CLT') ? 'selected' : '' ?>>CLT</option>
+                      <option value="PJ" <?= (($v['employment_type'] ?? '') === 'PJ') ? 'selected' : '' ?>>PJ</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3"><label class="form-label">Admissão</label><input type="text" name="admission_date" class="form-control" value="<?= e($v['admission_date'] ? br_date($v['admission_date']) : '') ?>" placeholder="dd/mm/aaaa" maxlength="10"></div>
+                  <div class="col-md-3"><label class="form-label">Salário</label><input type="number" step="0.01" name="salary" class="form-control" value="<?= e($v['salary'] ?? '') ?>" placeholder="0,00"></div>
+                  <div class="col-md-3"><label class="form-label">Carga horária (h/sem)</label><input type="number" name="workload_hours" class="form-control" value="<?= e($v['workload_hours'] ?? '') ?>" placeholder="40"></div>
                 </div>
-              </div>
-
-              <div class="col-md-4">
-                <label class="form-label">Telefone</label>
-                <input type="text" name="phone" class="form-control">
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">E-mail Profissional</label>
-                <input type="email" name="professional_email" class="form-control">
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">CRMV</label>
-                <input type="text" name="crmv" class="form-control">
-              </div>
-
-              <div class="col-md-4">
-                <label class="form-label">Vínculo</label>
-                <select name="employment_type" class="form-select">
-                  <option value="">Selecione</option>
-                  <option value="clt">CLT</option>
-                  <option value="pj">PJ</option>
-                  <option value="estagio">Estágio</option>
-                  <option value="terceirizado">Terceirizado</option>
-                </select>
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">Admissão</label>
-                <input type="date" name="admission_date" class="form-control">
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">Salário</label>
-                <input type="number" step="0.01" name="salary" class="form-control">
-              </div>
-
-              <div class="col-md-4">
-                <label class="form-label">Carga semanal (horas)</label>
-                <input type="number" step="1" name="workload_weekly_hours" class="form-control">
-              </div>
-              <div class="col-md-8">
-                <label class="form-label">Observações</label>
-                <textarea name="observations" class="form-control" rows="2"></textarea>
-              </div>
-              <div class="col-12">
-                <label class="form-label">Disponibilidade</label>
-                <textarea name="availability_notes" class="form-control" rows="2"></textarea>
-              </div>
-
-              <div class="col-md-6">
-                <label class="form-label">Especialidades</label>
-                <select name="specialties[]" class="form-select" multiple size="6">
-                  <?php if (!empty($specialties)): ?>
-                    <?php foreach ($specialties as $sp): ?>
-                      <option value="<?php echo (int)$sp['id']; ?>"><?php echo htmlspecialchars($sp['name']); ?></option>
-                    <?php endforeach; ?>
-                  <?php else: ?>
-                    <option disabled>Nenhuma especialidade cadastrada</option>
-                  <?php endif; ?>
-                </select>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Unidades</label>
-                <select name="units[]" class="form-select" multiple size="6">
-                  <?php if (!empty($units)): ?>
-                    <?php foreach ($units as $un): ?>
-                      <option value="<?php echo (int)$un['id']; ?>"><?php echo htmlspecialchars($un['name']); ?></option>
-                    <?php endforeach; ?>
-                  <?php else: ?>
-                    <option disabled>Nenhuma unidade cadastrada</option>
-                  <?php endif; ?>
-                </select>
-              </div>
+                <div class="mt-3 text-end"><button class="btn btn-primary">Salvar</button></div>
+              </form>
             </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </div>
+      <?php $modals .= ob_get_clean(); ?>
+    <?php endforeach; ?>
+  </tbody>
+</table>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.alert[data-autohide="true"]').forEach(function(el){
+      setTimeout(function(){ el.classList.add('d-none'); }, 5000);
+    });
+  });
+</script>
+
+<?= $modals ?>
+
+<!-- Modal Novo Veterinário -->
+<div class="modal fade" id="vetModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Novo Veterinário</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <form method="post" action="<?= e(APP_URL) ?>/veterinarians/create">
+          <?= csrf_input() ?>
+          <div class="row g-3">
+            <div class="col-md-6"><label class="form-label">Nome</label><input name="name" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label">Email</label><input type="email" name="email" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label">Senha</label><input type="password" name="password" class="form-control" required placeholder="Mín. 6 caracteres"></div>
+            <div class="col-md-6 d-flex align-items-center"><div class="form-check mt-4">
+              <input class="form-check-input" type="checkbox" name="is_active" id="vetActiveNew" checked>
+              <label class="form-check-label" for="vetActiveNew">Ativo</label>
+            </div></div>
+            <div class="col-md-12"><label class="form-label">Especialidades</label>
+              <select name="specialties[]" class="form-select" multiple size="6">
+                <?php foreach (($specialties ?? []) as $s): $sid = (int)$s['id']; ?>
+                  <option value="<?= e((string)$sid) ?>"><?= e($s['name']) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <small class="text-muted">Segure Ctrl (Windows) para múltiplas seleções.</small>
+            </div>
+            <div class="col-md-6"><label class="form-label">Celular</label><input name="mobile_phone" class="form-control" placeholder="(DD) 9XXXX-XXXX"></div>
+            <div class="col-md-6"><label class="form-label">Telefone Fixo</label><input name="landline_phone" class="form-control" placeholder="(DD) XXXX-XXXX"></div>
+            <div class="col-md-6"><label class="form-label">Email Profissional</label><input type="email" name="professional_email" class="form-control" placeholder="nome@empresa.com"></div>
+            <div class="col-md-6"><label class="form-label">CRMV</label><input name="crmv" class="form-control" placeholder="12345"></div>
+            <div class="col-md-3"><label class="form-label">UF</label><input name="crmv_uf" maxlength="2" class="form-control" placeholder="SP"></div>
+            <div class="col-md-3"><label class="form-label">Tipo de Contrato</label>
+              <select name="employment_type" class="form-select">
+                <option value="">—</option>
+                <option value="CLT">CLT</option>
+                <option value="PJ">PJ</option>
+              </select>
+            </div>
+            <div class="col-md-3"><label class="form-label">Admissão</label><input type="text" name="admission_date" class="form-control" placeholder="dd/mm/aaaa" maxlength="10"></div>
+            <div class="col-md-3"><label class="form-label">Salário</label><input type="number" step="0.01" name="salary" class="form-control" placeholder="0,00"></div>
+            <div class="col-md-3"><label class="form-label">Carga horária (h/sem)</label><input type="number" name="workload_hours" class="form-control" placeholder="40"></div>
           </div>
+          <div class="mt-3 text-end"><button class="btn btn-primary">Salvar</button></div>
         </form>
       </div>
     </div>
   </div>
-
-  <!-- Modais de edição -->
-  <?php if (!empty($vets)): ?>
-    <?php foreach ($vets as $v): ?>
-      <?php $uid = (int)$v['id'];
-        $selSpecs = [];
-        if (!empty($vetSpecialties[$uid])) {
-          $selSpecs = array_map(function($row){ return (int)($row['specialty_id'] ?? $row['id'] ?? 0); }, $vetSpecialties[$uid]);
-        }
-        $selUnits = [];
-        if (!empty($vetUnits[$uid])) {
-          $selUnits = array_map(function($row){ return (int)($row['unit_id'] ?? $row['id'] ?? 0); }, $vetUnits[$uid]);
-        }
-      ?>
-      <div class="modal fade" id="editVeterinarianModal_<?php echo $uid; ?>" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Editar Veterinário</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form method="post" action="<?php echo APP_URL; ?>/veterinarians/<?php echo $uid; ?>/edit">
-              <div class="modal-body">
-                <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label class="form-label">Nome</label>
-                    <input type="text" name="name" class="form-control" value="<?php echo htmlspecialchars($v['name']); ?>" required>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">E-mail (login)</label>
-                    <input type="email" name="email" class="form-control" value="<?php echo htmlspecialchars($v['email']); ?>" required>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Senha (deixe em branco para manter)</label>
-                    <input type="password" name="password" class="form-control" minlength="6">
-                  </div>
-                  <div class="col-md-6 d-flex align-items-end">
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" value="1" id="edit_is_active_<?php echo $uid; ?>" name="is_active" <?php echo !empty($v['is_active']) ? 'checked' : ''; ?>>
-                      <label class="form-check-label" for="edit_is_active_<?php echo $uid; ?>">Ativo</label>
-                    </div>
-                  </div>
-
-                  <div class="col-md-4">
-                    <label class="form-label">Telefone</label>
-                    <input type="text" name="phone" class="form-control" value="<?php echo htmlspecialchars($v['phone'] ?? ''); ?>">
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">E-mail Profissional</label>
-                    <input type="email" name="professional_email" class="form-control" value="<?php echo htmlspecialchars($v['professional_email'] ?? ''); ?>">
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">CRMV</label>
-                    <input type="text" name="crmv" class="form-control" value="<?php echo htmlspecialchars($v['crmv'] ?? ''); ?>">
-                  </div>
-
-                  <div class="col-md-4">
-                    <label class="form-label">Vínculo</label>
-                    <select name="employment_type" class="form-select">
-                      <?php $emp = $v['employment_type'] ?? ''; ?>
-                      <option value="" <?php echo $emp===''?'selected':''; ?>>Selecione</option>
-                      <option value="clt" <?php echo $emp==='clt'?'selected':''; ?>>CLT</option>
-                      <option value="pj" <?php echo $emp==='pj'?'selected':''; ?>>PJ</option>
-                      <option value="estagio" <?php echo $emp==='estagio'?'selected':''; ?>>Estágio</option>
-                      <option value="terceirizado" <?php echo $emp==='terceirizado'?'selected':''; ?>>Terceirizado</option>
-                    </select>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Admissão</label>
-                    <input type="date" name="admission_date" class="form-control" value="<?php echo htmlspecialchars($v['admission_date'] ?? ''); ?>">
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Salário</label>
-                    <input type="number" step="0.01" name="salary" class="form-control" value="<?php echo htmlspecialchars($v['salary'] ?? ''); ?>">
-                  </div>
-
-                  <div class="col-md-4">
-                    <label class="form-label">Carga semanal (horas)</label>
-                    <input type="number" step="1" name="workload_weekly_hours" class="form-control" value="<?php echo htmlspecialchars($v['workload_weekly_hours'] ?? ''); ?>">
-                  </div>
-                  <div class="col-md-8">
-                    <label class="form-label">Observações</label>
-                    <textarea name="observations" class="form-control" rows="2"><?php echo htmlspecialchars($v['observations'] ?? ''); ?></textarea>
-                  </div>
-                  <div class="col-12">
-                    <label class="form-label">Disponibilidade</label>
-                    <textarea name="availability_notes" class="form-control" rows="2"><?php echo htmlspecialchars($v['availability_notes'] ?? ''); ?></textarea>
-                  </div>
-
-                  <div class="col-md-6">
-                    <label class="form-label">Especialidades</label>
-                    <select name="specialties[]" class="form-select" multiple size="6">
-                      <?php if (!empty($specialties)): ?>
-                        <?php foreach ($specialties as $sp): ?>
-                          <?php $sid = (int)$sp['id']; $selected = in_array($sid, $selSpecs, true) ? 'selected' : ''; ?>
-                          <option value="<?php echo $sid; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($sp['name']); ?></option>
-                        <?php endforeach; ?>
-                      <?php else: ?>
-                        <option disabled>Nenhuma especialidade cadastrada</option>
-                      <?php endif; ?>
-                    </select>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Unidades</label>
-                    <select name="units[]" class="form-select" multiple size="6">
-                      <?php if (!empty($units)): ?>
-                        <?php foreach ($units as $un): ?>
-                          <?php $uidOpt = (int)$un['id']; $selected = in_array($uidOpt, $selUnits, true) ? 'selected' : ''; ?>
-                          <option value="<?php echo $uidOpt; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($un['name']); ?></option>
-                        <?php endforeach; ?>
-                      <?php else: ?>
-                        <option disabled>Nenhuma unidade cadastrada</option>
-                      <?php endif; ?>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Salvar</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    <?php endforeach; ?>
-  <?php endif; ?>
 </div>

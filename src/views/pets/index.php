@@ -6,6 +6,9 @@
 <?php if (!empty($flash_error)): ?>
   <div class="alert alert-danger"><?= e($flash_error) ?></div>
 <?php endif; ?>
+<?php if (!empty($flash_success)): ?>
+  <div class="alert alert-success" role="alert" data-autohide="true"><?= e($flash_success) ?></div>
+<?php endif; ?>
 <form class="row g-2 mb-3" method="get" action="<?= e(APP_URL) ?>/pets">
   <div class="col-auto">
     <input type="text" class="form-control" name="q" placeholder="Buscar por pet ou cliente" value="<?= e($q ?? '') ?>">
@@ -58,7 +61,7 @@
                   <div class="col-md-6"><label class="form-label">Nome</label><input name="name" class="form-control" value="<?= e($p['name']) ?>" required></div>
                   <div class="col-md-4"><label class="form-label">Espécie</label><input name="species" class="form-control" value="<?= e($p['species']) ?>"></div>
                   <div class="col-md-4"><label class="form-label">Raça</label><input name="breed" class="form-control" value="<?= e($p['breed']) ?>"></div>
-                  <div class="col-md-4"><label class="form-label">Nascimento (dd/mm/aaaa)</label><input name="birth_date" class="form-control" value="<?= e(br_date($p['birth_date'])) ?>" placeholder="dd/mm/aaaa"></div>
+                  <div class="col-md-4"><label class="form-label">Nascimento (dd/mm/aaaa)</label><input name="birth_date" class="form-control" value="<?= e(br_date($p['birth_date'])) ?>" placeholder="01/01/2000" maxlength="10"></div>
                   <div class="col-md-6"><label class="form-label">Sexo</label><input name="gender" class="form-control" value="<?= e($p['gender']) ?>"></div>
                   <div class="col-md-6"><label class="form-label">Cor</label><input name="color" class="form-control" value="<?= e($p['color']) ?>"></div>
                   <div class="col-12"><label class="form-label">Observações</label><textarea name="notes" class="form-control"><?= e($p['notes']) ?></textarea></div>
@@ -73,6 +76,82 @@
   </tbody>
 </table>
 </div>
+
+<!-- Paginação -->
+<?php if ($totalPages > 1): ?>
+<nav aria-label="Navegação de páginas" class="mt-3">
+  <ul class="pagination justify-content-center">
+    <!-- Botão Anterior -->
+    <?php if ($page > 1): ?>
+      <li class="page-item">
+        <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page - 1])) ?>">Anterior</a>
+      </li>
+    <?php else: ?>
+      <li class="page-item disabled">
+        <span class="page-link">Anterior</span>
+      </li>
+    <?php endif; ?>
+
+    <!-- Páginas -->
+    <?php
+    $startPage = max(1, $page - 2);
+    $endPage = min($totalPages, $page + 2);
+    
+    if ($startPage > 1): ?>
+      <li class="page-item">
+        <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => 1])) ?>">1</a>
+      </li>
+      <?php if ($startPage > 2): ?>
+        <li class="page-item disabled">
+          <span class="page-link">...</span>
+        </li>
+      <?php endif; ?>
+    <?php endif; ?>
+
+    <?php for ($i = $startPage; $i <= $endPage; $i++): ?>
+      <li class="page-item <?= $i == $page ? 'active' : '' ?>">
+        <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $i])) ?>"><?= $i ?></a>
+      </li>
+    <?php endfor; ?>
+
+    <?php if ($endPage < $totalPages): ?>
+      <?php if ($endPage < $totalPages - 1): ?>
+        <li class="page-item disabled">
+          <span class="page-link">...</span>
+        </li>
+      <?php endif; ?>
+      <li class="page-item">
+        <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $totalPages])) ?>"><?= $totalPages ?></a>
+      </li>
+    <?php endif; ?>
+
+    <!-- Botão Próximo -->
+    <?php if ($page < $totalPages): ?>
+      <li class="page-item">
+        <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page + 1])) ?>">Próximo</a>
+      </li>
+    <?php else: ?>
+      <li class="page-item disabled">
+        <span class="page-link">Próximo</span>
+      </li>
+    <?php endif; ?>
+  </ul>
+</nav>
+
+<!-- Informações da paginação -->
+<div class="text-center text-muted small mt-2">
+  Mostrando <?= min($limit, $total - (($page - 1) * $limit)) ?> de <?= $total ?> registros
+  (Página <?= $page ?> de <?= $totalPages ?>)
+</div>
+<?php endif; ?>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.alert[data-autohide="true"]').forEach(function(el){
+      setTimeout(function(){ el.classList.add('d-none'); }, 5000);
+    });
+  });
+</script>
 
 <!-- Modal Novo Pet -->
 <div class="modal fade" id="petModal" tabindex="-1" aria-hidden="true">
@@ -95,7 +174,7 @@
             <div class="col-md-6"><label class="form-label">Nome</label><input name="name" class="form-control" required></div>
             <div class="col-md-4"><label class="form-label">Espécie</label><input name="species" class="form-control"></div>
             <div class="col-md-4"><label class="form-label">Raça</label><input name="breed" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">Nascimento (dd/mm/aaaa)</label><input name="birth_date" class="form-control" placeholder="dd/mm/aaaa"></div>
+            <div class="col-md-4"><label class="form-label">Nascimento (dd/mm/aaaa)</label><input name="birth_date" class="form-control" placeholder="01/01/2000" maxlength="10"></div>
             <div class="col-md-6"><label class="form-label">Sexo</label><input name="gender" class="form-control"></div>
             <div class="col-md-6"><label class="form-label">Cor</label><input name="color" class="form-control"></div>
             <div class="col-12"><label class="form-label">Observações</label><textarea name="notes" class="form-control"></textarea></div>

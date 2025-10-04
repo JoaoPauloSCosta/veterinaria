@@ -54,6 +54,74 @@
         </tbody>
       </table>
     </div>
+    
+    <!-- Paginação -->
+    <?php if ($totalPages > 1): ?>
+    <nav aria-label="Navegação de páginas" class="mt-3">
+      <ul class="pagination justify-content-center">
+        <!-- Botão Anterior -->
+        <?php if ($page > 1): ?>
+          <li class="page-item">
+            <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page - 1])) ?>">Anterior</a>
+          </li>
+        <?php else: ?>
+          <li class="page-item disabled">
+            <span class="page-link">Anterior</span>
+          </li>
+        <?php endif; ?>
+
+        <!-- Páginas -->
+        <?php
+        $startPage = max(1, $page - 2);
+        $endPage = min($totalPages, $page + 2);
+        
+        if ($startPage > 1): ?>
+          <li class="page-item">
+            <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => 1])) ?>">1</a>
+          </li>
+          <?php if ($startPage > 2): ?>
+            <li class="page-item disabled">
+              <span class="page-link">...</span>
+            </li>
+          <?php endif; ?>
+        <?php endif; ?>
+
+        <?php for ($i = $startPage; $i <= $endPage; $i++): ?>
+          <li class="page-item <?= $i == $page ? 'active' : '' ?>">
+            <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $i])) ?>"><?= $i ?></a>
+          </li>
+        <?php endfor; ?>
+
+        <?php if ($endPage < $totalPages): ?>
+          <?php if ($endPage < $totalPages - 1): ?>
+            <li class="page-item disabled">
+              <span class="page-link">...</span>
+            </li>
+          <?php endif; ?>
+          <li class="page-item">
+            <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $totalPages])) ?>"><?= $totalPages ?></a>
+          </li>
+        <?php endif; ?>
+
+        <!-- Botão Próximo -->
+        <?php if ($page < $totalPages): ?>
+          <li class="page-item">
+            <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page + 1])) ?>">Próximo</a>
+          </li>
+        <?php else: ?>
+          <li class="page-item disabled">
+            <span class="page-link">Próximo</span>
+          </li>
+        <?php endif; ?>
+      </ul>
+    </nav>
+
+    <!-- Informações da paginação -->
+    <div class="text-center text-muted small mt-2">
+      Mostrando <?= min($limit, $total - (($page - 1) * $limit)) ?> de <?= $total ?> registros
+      (Página <?= $page ?> de <?= $totalPages ?>)
+    </div>
+    <?php endif; ?>
   </div>
   <div class="col-md-4">
     <div class="card mb-3"><div class="card-body">

@@ -21,11 +21,13 @@ define('APP_ENV', 'development'); // development, production
 // Timezone
 date_default_timezone_set('America/Sao_Paulo');
 
-// Configurações de Sessão
-ini_set('session.cookie_httponly', 1);
-ini_set('session.use_only_cookies', 1);
-ini_set('session.cookie_secure', 0); // Mudar para 1 em HTTPS
-ini_set('session.cookie_samesite', 'Strict');
+// Configurações de Sessão (apenas se a sessão não estiver ativa)
+if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.use_only_cookies', 1);
+    ini_set('session.cookie_secure', 0); // Mudar para 1 em HTTPS
+    ini_set('session.cookie_samesite', 'Strict');
+}
 
 // Configurações de Upload
 define('UPLOAD_MAX_SIZE', 5 * 1024 * 1024); // 5MB

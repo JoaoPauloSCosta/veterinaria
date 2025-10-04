@@ -5,17 +5,29 @@ require_once __DIR__ . '/../helpers/validation.php';
 require_once __DIR__ . '/../models/SettingsModel.php';
 
 class SettingsController {
+    /**
+     * Garante que usuário autenticado tenha perfil admin
+     * Método utilitário usado pelas ações de configurações
+     */
     private static function ensureAdmin(): void {
         require_login();
         require_role(['admin']);
     }
 
+    /**
+     * Exibe a página de configurações com todas as chaves
+     * Carrega valores atuais do banco e renderiza a view
+     */
     public static function index(): void {
         self::ensureAdmin();
         $settings = SettingsModel::all();
         render('settings/index', compact('settings'));
     }
 
+    /**
+     * Salva múltiplas configurações e upload opcional de logo
+     * Sanitiza entradas, faz upload seguro e registra auditoria
+     */
     public static function save(): void {
         self::ensureAdmin();
         csrf_validate();
@@ -60,6 +72,10 @@ class SettingsController {
         header('Location: ' . APP_URL . '/settings');
     }
 
+    /**
+     * Restaura todas as configurações para valores padrão
+     * Aplica CSRF; registra auditoria e redireciona
+     */
     public static function reset(): void {
         self::ensureAdmin();
         csrf_validate();

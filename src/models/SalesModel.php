@@ -2,6 +2,10 @@
 require_once __DIR__ . '/../helpers/db.php';
 
 class SalesModel {
+    /**
+     * Cria nova fatura para um cliente com status pendente
+     * Retorna o ID da fatura criada
+     */
     public static function createInvoice(int $clientId, int $userId): int {
         $pdo = DB::getConnection();
         $stmt = $pdo->prepare('INSERT INTO invoices (client_id, user_id, total, status) VALUES (:cid,:uid,0,"pendente")');
@@ -9,6 +13,10 @@ class SalesModel {
         return (int)$pdo->lastInsertId();
     }
 
+    /**
+     * Adiciona item à fatura e atualiza o total automaticamente
+     * Calcula subtotal baseado na quantidade e preço unitário
+     */
     public static function addItem(int $invoiceId, int $productId, int $qty, float $unitPrice): void {
         $pdo = DB::getConnection();
         $stmt = $pdo->prepare('INSERT INTO invoice_items (invoice_id, product_id, quantity, unit_price, subtotal) VALUES (:iid,:pid,:q,:p,:s)');
@@ -16,6 +24,10 @@ class SalesModel {
         $pdo->prepare('UPDATE invoices SET total = (SELECT COALESCE(SUM(subtotal),0) FROM invoice_items WHERE invoice_id = :iid) WHERE id = :iid')->execute([':iid'=>$invoiceId]);
     }
 
+    /**
+     * Registra pagamento da fatura e altera status para paga
+     * Utiliza transação para garantir consistência dos dados
+     */
     public static function pay(int $invoiceId, string $method, float $amount): void {
         $pdo = DB::getConnection();
         $pdo->beginTransaction();
@@ -29,6 +41,10 @@ class SalesModel {
         }
     }
 
+    /**
+     * Busca fatura completa com seus itens por ID
+     * Retorna array com dados da fatura e lista de itens ou null se não encontrada
+     */
     public static function get(int $invoiceId): ?array {
         $pdo = DB::getConnection();
         $inv = $pdo->prepare('SELECT * FROM invoices WHERE id=:id');

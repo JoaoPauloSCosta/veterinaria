@@ -6,15 +6,34 @@ require_once __DIR__ . '/../models/PetModel.php';
 require_once __DIR__ . '/../models/ClientModel.php';
 
 class PetsController {
+    /**
+     * Lista pets com filtros e paginação; controla acesso por perfis
+     * Carrega clientes para o formulário e renderiza a view
+     */
     public static function index(): void {
         require_login();
         require_role(['admin','recepcao','veterinario']);
         $q = sanitize_string($_GET['q'] ?? '');
-        [$pets, $total] = PetModel::paginate($q, 50, 0);
+        $success = sanitize_string($_GET['success'] ?? '');
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
+        
+        $flash_success = '';
+        if ($success === 'created') { $flash_success = 'Pet cadastrado com sucesso.'; }
+        if ($success === 'deleted') { $flash_success = 'Pet excluído'; }
+        
+        [$pets, $total] = PetModel::paginate($q, $limit, $offset);
+        $totalPages = ceil($total / $limit);
         $clients = ClientModel::listAll();
-        render('pets/index', compact('pets','q','total','clients'));
+        
+        render('pets/index', compact('pets','q','total','clients','flash_success', 'page', 'totalPages', 'limit'));
     }
 
+    /**
+     * Valida e cria novo pet a partir dos dados do POST
+     * Converte data BR para ISO quando necessário; registra auditoria
+     */
     public static function create(): void {
         require_login();
         require_role(['admin','recepcao','veterinario']);
@@ -48,9 +67,13 @@ class PetsController {
         }
         $id = PetModel::create($data);
         audit_log($_SESSION['user']['id'] ?? null, 'pet_create', 'pets', $id, json_encode($data));
-        header('Location: ' . APP_URL . '/pets');
+        header('Location: ' . APP_URL . '/pets?success=created');
     }
 
+    /**
+        * Atualiza dados do pet com validação e controle de acesso
+        * Em caso de erro, renderiza tela de edição com mensagem; registra auditoria
+        */
     public static function edit(int $id): void {
         require_login();
         require_role(['admin','recepcao','veterinario']);
@@ -80,12 +103,16 @@ class PetsController {
         header('Location: ' . APP_URL . '/pets');
     }
 
+    /**
+     * Exclui um pet; exige perfil admin e proteção CSRF
+     * Registra auditoria e redireciona com mensagem de sucesso
+     */
     public static function delete(int $id): void {
         require_login();
         require_role(['admin']);
         csrf_validate();
         PetModel::delete($id);
         audit_log($_SESSION['user']['id'] ?? null, 'pet_delete', 'pets', $id);
-        header('Location: ' . APP_URL . '/pets');
+        header('Location: ' . APP_URL . '/pets?success=deleted');
     }
 }

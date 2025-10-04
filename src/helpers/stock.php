@@ -1,6 +1,10 @@
 <?php
 require_once __DIR__ . '/db.php';
 
+/**
+ * Ajusta estoque e registra movimento
+ * Suporta entrada/saída e rollback em caso de erro
+ */
 function stock_adjust(int $productId, int $quantity, string $type, string $reason, int $userId): bool {
     // type: entrada | saida | ajuste
     $pdo = DB::getConnection();

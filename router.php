@@ -11,8 +11,13 @@ require_once __DIR__ . '/src/controllers/ProductsController.php';
 require_once __DIR__ . '/src/controllers/RecordsController.php';
 require_once __DIR__ . '/src/controllers/SalesController.php';
 require_once __DIR__ . '/src/controllers/UsersController.php';
+require_once __DIR__ . '/src/controllers/VeterinariansController.php';
 require_once __DIR__ . '/src/controllers/SettingsController.php';
 require_once __DIR__ . '/src/controllers/PasswordController.php';
+require_once __DIR__ . '/src/models/VetProfileModel.php';
+
+// Garantir que as tabelas de perfil de veterinário existam
+try { VetProfileModel::ensureSchema(); } catch (Throwable $e) { error_log('ensureSchema vet_profiles: '.$e->getMessage()); }
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $basePath = rtrim(parse_url(APP_URL, PHP_URL_PATH), '/');
@@ -90,16 +95,20 @@ switch (true) {
         break;
     // Agenda routes
     case $path === '/agenda' && $method === 'GET':
-        AppointmentsController::index();
+        $controller = new AppointmentsController();
+        $controller->index();
         break;
     case $path === '/agenda/create' && $method === 'POST':
-        AppointmentsController::create();
+        $controller = new AppointmentsController();
+        $controller->create();
         break;
     case preg_match('#^/agenda/(\d+)/move$#', $path, $m) === 1 && $method === 'POST':
-        AppointmentsController::move((int)$m[1]);
+        $controller = new AppointmentsController();
+        $controller->move((int)$m[1]);
         break;
     case preg_match('#^/agenda/(\d+)/cancel$#', $path, $m) === 1 && $method === 'POST':
-        AppointmentsController::cancel((int)$m[1]);
+        $controller = new AppointmentsController();
+        $controller->cancel((int)$m[1]);
         break;
     // Clients routes
     case $path === '/clients' && $method === 'GET':
@@ -113,6 +122,20 @@ switch (true) {
         break;
     case preg_match('#^/clients/(\d+)/delete$#', $path, $m) === 1 && $method === 'POST':
         ClientsController::delete((int)$m[1]);
+        break;
+
+    // Veterinarians routes
+    case $path === '/veterinarians' && $method === 'GET':
+        VeterinariansController::index();
+        break;
+    case $path === '/veterinarians/create' && $method === 'POST':
+        VeterinariansController::create();
+        break;
+    case preg_match('#^/veterinarians/(\d+)/edit$#', $path, $m) === 1 && $method === 'POST':
+        VeterinariansController::edit((int)$m[1]);
+        break;
+    case preg_match('#^/veterinarians/(\d+)/delete$#', $path, $m) === 1 && $method === 'POST':
+        VeterinariansController::delete((int)$m[1]);
         break;
 
     // Pets routes
@@ -191,6 +214,24 @@ switch (true) {
     case $path === '/export/csv' && $method === 'GET':
         ClientsController::exportCsv();
         break;
+    
+    // Notifications routes
+    case $path === '/notifications/unread' && $method === 'GET':
+        require_once 'src/controllers/NotificationsController.php';
+        $controller = new NotificationsController();
+        $controller->unread();
+        break;
+    case $path === '/notifications/mark-read' && $method === 'POST':
+        require_once 'src/controllers/NotificationsController.php';
+        $controller = new NotificationsController();
+        $controller->markRead();
+        break;
+    case $path === '/notifications/mark-all-read' && $method === 'POST':
+        require_once 'src/controllers/NotificationsController.php';
+        $controller = new NotificationsController();
+        $controller->markAllRead();
+        break;
+    
     default:
         http_response_code(404);
         echo 'Rota não encontrada.';

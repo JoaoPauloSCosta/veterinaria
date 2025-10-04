@@ -7,6 +7,10 @@ require_once __DIR__ . '/../models/ProductModel.php';
 require_once __DIR__ . '/../models/ClientModel.php';
 
 class SalesController {
+    /**
+     * Exibe a tela de PDV com lista de clientes e produtos
+     * Exige login e perfis admin/financeiro/recepção
+     */
     public static function pos(): void {
         require_login();
         require_role(['admin','financeiro','recepcao']);
@@ -15,6 +19,10 @@ class SalesController {
         render('sales/pos', compact('clients','products'));
     }
 
+    /**
+     * Processa checkout: cria fatura, adiciona itens, baixa estoque e paga
+     * Valida entrada; registra auditoria e renderiza recibo
+     */
     public static function checkout(): void {
         require_login();
         require_role(['admin','financeiro','recepcao']);

@@ -6,6 +6,10 @@ require_once __DIR__ . '/../models/RecordModel.php';
 require_once __DIR__ . '/../models/ProductModel.php';
 
 class RecordsController {
+    /**
+     * Lista prontuários do pet informado e renderiza a view
+     * Exige login e perfil adequado (admin/veterinario)
+     */
     public static function list(int $petId): void {
         require_login();
         require_role(['admin','veterinario']);
@@ -13,6 +17,10 @@ class RecordsController {
         render('records/index', compact('items','petId'));
     }
 
+    /**
+     * Cria novo prontuário com dados clínicos e baixa automática de estoque
+     * Exige login, perfil adequado e proteção CSRF; registra auditoria
+     */
     public static function create(int $petId): void {
         require_login();
         require_role(['admin','veterinario']);

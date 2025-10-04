@@ -6,12 +6,20 @@ require_once __DIR__ . '/../helpers/errors.php';
 require_once __DIR__ . '/../helpers/db.php';
 
 class UsersController {
+    /**
+     * Exibe formulário de criação de usuário
+     * Exige login e perfil admin
+     */
     public static function new(): void {
         require_login();
         require_role(['admin']);
         render('users/create');
     }
 
+    /**
+     * Valida dados, cria usuário e registra auditoria
+     * Garante email único e requisitos mínimos; trata erros de persistência
+     */
     public static function create(): void {
         require_login();
         require_role(['admin']);

@@ -2,6 +2,10 @@
 require_once __DIR__ . '/../helpers/db.php';
 
 class SettingsModel {
+    /**
+     * Garante que a tabela settings existe com estrutura adequada
+     * Cria tabela se não existir com colunas para chave, valor e timestamp
+     */
     private static function ensureTable(PDO $pdo): void {
         // Prefer non-reserved column names; do not override existing schema
         $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
@@ -11,6 +15,10 @@ class SettingsModel {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
 
+    /**
+     * Detecta nomes das colunas de chave e valor na tabela settings
+     * Retorna array com mapeamento das colunas encontradas
+     */
     private static function detectColumns(PDO $pdo): array {
         // Returns ['k'=>'col_name_for_key','v'=>'col_name_for_value']
         $cols = [];
@@ -28,6 +36,10 @@ class SettingsModel {
         return ['k'=>$k,'v'=>$v];
     }
 
+    /**
+     * Retorna todas as configurações do sistema como array associativo
+     * Chave da configuração como índice e valor como conteúdo
+     */
     public static function all(): array {
         $pdo = DB::getConnection();
         self::ensureTable($pdo);
@@ -38,6 +50,10 @@ class SettingsModel {
         return $out;
     }
 
+    /**
+     * Define múltiplas configurações de uma vez usando array associativo
+     * Substitui valores existentes ou cria novos conforme necessário
+     */
     public static function setMany(array $assoc): void {
         $pdo = DB::getConnection();
         self::ensureTable($pdo);
@@ -47,6 +63,10 @@ class SettingsModel {
         foreach ($assoc as $k=>$v) { $stmt->execute([':k'=>$k, ':v'=>$v]); }
     }
 
+    /**
+     * Remove todas as configurações do sistema
+     * Limpa completamente a tabela settings
+     */
     public static function resetAll(): void {
         $pdo = DB::getConnection();
         self::ensureTable($pdo);

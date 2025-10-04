@@ -1,4 +1,8 @@
 <?php
+/**
+ * Retorna mensagem amigável para erros PDO e violações comuns
+ * Detecta chaves únicas como CPF/CNPJ e e-mail para feedback claro
+ */
 function friendly_pdo_message(Throwable $e, string $entity = 'registro'): string {
     // Default safe message
     $msg = 'Operação não pôde ser concluída. Verifique os dados e tente novamente.';

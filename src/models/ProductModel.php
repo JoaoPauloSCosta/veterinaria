@@ -2,10 +2,19 @@
 require_once __DIR__ . '/../helpers/db.php';
 
 class ProductModel {
+    /**
+     * Lista todos os produtos ordenados por nome
+     * Retorna array com ID, nome, preço e tipo (produto/serviço)
+     */
     public static function listAll(): array {
         $pdo = DB::getConnection();
         return $pdo->query('SELECT id, name, price, is_service FROM products ORDER BY name')->fetchAll();
     }
+    
+    /**
+     * Lista produtos com paginação e busca opcional por nome
+     * Retorna array com registros paginados e total de registros encontrados
+     */
     public static function paginate(string $q = '', int $limit = 50, int $offset = 0): array {
         $pdo = DB::getConnection();
         $where = '';
@@ -22,6 +31,10 @@ class ProductModel {
         return [$rows, $total];
     }
 
+    /**
+     * Busca produto por ID
+     * Retorna array com dados do produto ou null se não encontrado
+     */
     public static function find(int $id): ?array {
         $pdo = DB::getConnection();
         $stmt = $pdo->prepare('SELECT * FROM products WHERE id = :id');
@@ -30,6 +43,10 @@ class ProductModel {
         return $row ?: null;
     }
 
+    /**
+     * Cria novo produto com os dados fornecidos
+     * Retorna o ID do produto criado
+     */
     public static function create(array $data): int {
         $pdo = DB::getConnection();
         $stmt = $pdo->prepare('INSERT INTO products (name, description, price, stock_quantity, min_stock_level, is_service) VALUES (:name,:description,:price,:stock_quantity,:min_stock_level,:is_service)');
@@ -39,6 +56,10 @@ class ProductModel {
         return (int)$pdo->lastInsertId();
     }
 
+    /**
+     * Atualiza dados de um produto existente
+     * Retorna true se a operação foi bem-sucedida
+     */
     public static function update(int $id, array $data): bool {
         $pdo = DB::getConnection();
         $stmt = $pdo->prepare('UPDATE products SET name=:name, description=:description, price=:price, min_stock_level=:min_stock_level, is_service=:is_service WHERE id=:id');
@@ -47,12 +68,20 @@ class ProductModel {
         ]);
     }
 
+    /**
+     * Remove produto do sistema por ID
+     * Retorna true se a operação foi bem-sucedida
+     */
     public static function delete(int $id): bool {
         $pdo = DB::getConnection();
         $stmt = $pdo->prepare('DELETE FROM products WHERE id = :id');
         return $stmt->execute([':id'=>$id]);
     }
 
+    /**
+     * Lista produtos com estoque baixo (abaixo do nível mínimo)
+     * Retorna array ordenado por quantidade em estoque crescente
+     */
     public static function lowStock(): array {
         $pdo = DB::getConnection();
         return $pdo->query('SELECT * FROM products WHERE stock_quantity <= min_stock_level AND is_service = 0 ORDER BY stock_quantity ASC')->fetchAll();

@@ -1,4 +1,8 @@
 <?php
+/**
+ * Formata data para padrão brasileiro dd/mm/YYYY
+ * Retorna string original em caso de falha
+ */
 function br_date($value): string {
     if (empty($value)) return '';
     try {
@@ -9,6 +13,10 @@ function br_date($value): string {
     }
 }
 
+/**
+ * Converte data BR (dd/mm/YYYY) para ISO (YYYY-MM-DD)
+ * Retorna null se formato inválido
+ */
 function br_to_iso_date(?string $value): ?string {
     $v = trim((string)$value);
     if ($v === '') return null;
@@ -18,6 +26,10 @@ function br_to_iso_date(?string $value): ?string {
     return sprintf('%04d-%02d-%02d', (int)$y, (int)$mth, (int)$d);
 }
 
+/**
+ * Formata hora para HH:MM
+ * Retorna string original em caso de falha
+ */
 function br_time($value): string {
     if (empty($value)) return '';
     try {
@@ -28,6 +40,10 @@ function br_time($value): string {
     }
 }
 
+/**
+ * Formata data e hora para dd/mm/YYYY HH:MM
+ * Retorna string original em caso de falha
+ */
 function br_datetime($value): string {
     if (empty($value)) return '';
     try {
