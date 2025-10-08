@@ -3,12 +3,16 @@ require_once __DIR__ . '/../helpers/db.php';
 
 class UserModel {
     /**
-     * Lista usuários ativos por tipo de função (role)
+     * Lista usuários por tipo de função (role)
+     * Por padrão retorna apenas ativos; se $includeInactive for true, inclui todos.
      * Retorna array com ID, nome, email e role ordenados por nome
      */
-    public static function listByRole(string $role): array {
+    public static function listByRole(string $role, bool $includeInactive = false): array {
         $pdo = DB::getConnection();
-        $stmt = $pdo->prepare('SELECT id, name, email, role FROM users WHERE role = :role AND is_active = 1 ORDER BY name');
+        $sql = 'SELECT id, name, email, role FROM users WHERE role = :role';
+        if (!$includeInactive) { $sql .= ' AND is_active = 1'; }
+        $sql .= ' ORDER BY name';
+        $stmt = $pdo->prepare($sql);
         $stmt->execute([':role'=>$role]);
         return $stmt->fetchAll();
     }
@@ -80,5 +84,15 @@ class UserModel {
         $pdo = DB::getConnection();
         $stmt = $pdo->prepare('DELETE FROM users WHERE id = :id AND role = "veterinario"');
         return $stmt->execute([':id'=>$id]);
+    }
+
+    /**
+     * Define o status de atividade (is_active) de um veterinário.
+     * Retorna true se a operação foi bem-sucedida.
+     */
+    public static function setActive(int $id, bool $active): bool {
+        $pdo = DB::getConnection();
+        $stmt = $pdo->prepare('UPDATE users SET is_active = :active WHERE id = :id AND role = "veterinario"');
+        return $stmt->execute([':id' => $id, ':active' => $active ? 1 : 0]);
     }
 }

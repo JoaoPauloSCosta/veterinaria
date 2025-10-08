@@ -47,7 +47,8 @@ function applyDateMask() {
       // Se não está no formato correto
       if (!datePattern.test(value)) {
         isValidating = true;
-        alert('Por favor, digite a data no formato dd/mm/aaaa ou deixe o campo vazio');
+        // Remover popup - usar validação visual em vez de alert
+        e.target.classList.add('is-invalid');
         setTimeout(() => {
           e.target.focus();
           e.target.select();
@@ -62,12 +63,16 @@ function applyDateMask() {
       
       if (date.getDate() != day || date.getMonth() != month - 1 || date.getFullYear() != year) {
         isValidating = true;
-        alert('Data inválida. Por favor, verifique o dia, mês e ano.');
+        // Remover popup - usar validação visual em vez de alert
+        e.target.classList.add('is-invalid');
         setTimeout(() => {
           e.target.focus();
           e.target.select();
           isValidating = false;
         }, 100);
+      } else {
+        // Remove a classe de erro se a data estiver válida
+        e.target.classList.remove('is-invalid');
       }
     });
   });

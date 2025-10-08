@@ -5,6 +5,7 @@ require_once __DIR__ . '/../helpers/validation.php';
 require_once __DIR__ . '/../helpers/errors.php';
 require_once __DIR__ . '/../helpers/db.php';
 require_once __DIR__ . '/../models/UserModel.php';
+require_once __DIR__ . '/../models/AppointmentModel.php';
 require_once __DIR__ . '/../models/VetProfileModel.php';
 require_once __DIR__ . '/../models/SpecialtyModel.php';
 require_once __DIR__ . '/../models/VetSpecialtyModel.php';
@@ -30,13 +31,18 @@ class VeterinariansController {
             $v['specialties'] = VetSpecialtyModel::listNamesByVet((int)$v['id']);
         }
 
-        $success = $_GET['success'] ?? '';
-        $flash_success = null;
-        if ($success === 'created') { $flash_success = 'Veterinário cadastrado com sucesso'; }
-        elseif ($success === 'updated') { $flash_success = 'Veterinário atualizado com sucesso'; }
-        elseif ($success === 'deleted') { $flash_success = 'Veterinário excluído'; }
+        // Usar sessão para mensagens de sucesso, mantendo URL limpa
+        $flash_success = $_SESSION['vet_success'] ?? null;
+        if ($flash_success !== null) { unset($_SESSION['vet_success']); }
 
-        render('veterinarians/index', compact('vets','q','flash_success','specialties'));
+        // Consumir (e limpar) dados de conflito (agendamentos futuros) vindos via sessão
+        $futureAppointments = $_SESSION['vet_conflict_appointments'] ?? [];
+        $conflict_vet_id = $_SESSION['vet_conflict_id'] ?? null;
+        $conflict_vet_name = $_SESSION['vet_conflict_name'] ?? null;
+        $showConflictModal = !empty($_SESSION['vet_conflict_show']);
+        unset($_SESSION['vet_conflict_appointments'], $_SESSION['vet_conflict_id'], $_SESSION['vet_conflict_name'], $_SESSION['vet_conflict_show']);
+
+        render('veterinarians/index', compact('vets','q','flash_success','specialties','futureAppointments','conflict_vet_id','conflict_vet_name','showConflictModal'));
     }
 
     /**
@@ -129,7 +135,8 @@ class VeterinariansController {
             $finalIds = array_values(array_filter($postedIds, static fn($sid) => isset($allowedSet[$sid])));
             VetSpecialtyModel::replaceForVet($id, $finalIds);
             audit_log($_SESSION['user']['id'] ?? null, 'vet_create', 'users', $id, json_encode(['name'=>$name,'email'=>$email,'is_active'=>$isActive]));
-            header('Location: ' . APP_URL . '/veterinarians?success=created');
+            $_SESSION['vet_success'] = 'Veterinário cadastrado com sucesso';
+            header('Location: ' . APP_URL . '/veterinarians');
         } catch (Throwable $e) {
             $flash_error = friendly_pdo_message($e, 'veterinário');
             [$vets] = UserModel::paginateByRole('veterinario', '', 100, 0);
@@ -220,7 +227,8 @@ class VeterinariansController {
             $finalIds = array_values(array_filter($postedIds, static fn($sid) => isset($allowedSet[$sid])));
             VetSpecialtyModel::replaceForVet($id, $finalIds);
             audit_log($_SESSION['user']['id'] ?? null, 'vet_update', 'users', $id, json_encode(['name'=>$name,'email'=>$email,'is_active'=>$isActive]));
-            header('Location: ' . APP_URL . '/veterinarians?success=updated');
+            $_SESSION['vet_success'] = 'Veterinário atualizado com sucesso';
+            header('Location: ' . APP_URL . '/veterinarians');
         } catch (Throwable $e) {
             $flash_error = friendly_pdo_message($e, 'veterinário');
             [$vets] = UserModel::paginateByRole('veterinario', '', 100, 0);
@@ -237,13 +245,32 @@ class VeterinariansController {
         require_role(['admin']);
         csrf_validate();
         try {
+            // 1) Inativar o veterinário
+            UserModel::setActive($id, false);
+
+            // 2) Verificar agendamentos futuros
+            $futureAppointments = AppointmentModel::listFutureByVet($id);
+            if (!empty($futureAppointments)) {
+                // 3) Tratamento de conflitos: redirecionar e usar sessão (flash) para abrir modal apenas uma vez
+                $_SESSION['vet_conflict_appointments'] = $futureAppointments;
+                $_SESSION['vet_conflict_id'] = $id;
+                $vet = UserModel::findById($id);
+                $_SESSION['vet_conflict_name'] = $vet['name'] ?? null;
+                $_SESSION['vet_conflict_show'] = 1; // acionar modal somente após tentativa de exclusão
+                header('Location: ' . APP_URL . '/veterinarians');
+                return;
+            }
+
+            // 4) Sem conflitos: permitir exclusão definitiva
             UserModel::deleteVet($id);
             audit_log($_SESSION['user']['id'] ?? null, 'vet_delete', 'users', $id);
-            header('Location: ' . APP_URL . '/veterinarians?success=deleted');
+            $_SESSION['vet_success'] = 'Veterinário excluído com sucesso';
+            header('Location: ' . APP_URL . '/veterinarians');
         } catch (Throwable $e) {
             $flash_error = friendly_pdo_message($e, 'veterinário');
             [$vets] = UserModel::paginateByRole('veterinario', '', 100, 0);
-            render('veterinarians/index', compact('vets','flash_error'));
+            $specialties = SpecialtyModel::listAll();
+            render('veterinarians/index', compact('vets','flash_error','specialties'));
         }
     }
 }

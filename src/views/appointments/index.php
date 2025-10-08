@@ -1,4 +1,14 @@
 <?php require_login(); ?>
+<?php
+  // Documentação:
+  // `$showAppointmentSuccessModal` é uma flag de sessão específica definida
+  // pelo AppointmentsController ao criar um novo agendamento. Ela garante que
+  // o modal verde de sucesso apareça APENAS após a criação e não durante
+  // outras ações (ex.: cancelamento). Após lido, a flag é limpa para evitar
+  // reexibição em reloads subsequentes.
+  $showAppointmentSuccessModal = !empty($_SESSION['appointment_success']);
+  if ($showAppointmentSuccessModal) { unset($_SESSION['appointment_success']); }
+?>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h3>Agenda</h3>
   <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#agendaModal">Nova Consulta</button>
@@ -94,6 +104,16 @@ echo render_pagination($page ?? 1, $totalPages ?? 1, $limit ?? 10, $total ?? 0, 
       setTimeout(function(){ el.classList.add('d-none'); }, 5000);
     });
     
+    // Exibir modal verde de sucesso APÓS AGENDAR.
+    // Lê a flag de sessão enviada pelo controller; se verdadeira,
+    // instancia e mostra o `#appointmentSuccessModal`. Não interfere
+    // nos demais fluxos (listagem, filtros, cancelamentos).
+    const shouldShowSuccess = <?php echo $showAppointmentSuccessModal ? 'true' : 'false'; ?>;
+    if (shouldShowSuccess) {
+      const successModal = new bootstrap.Modal(document.getElementById('appointmentSuccessModal'));
+      successModal.show();
+    }
+    
     // Auto-submit form when order changes
     const orderSelect = document.querySelector('select[name="order"]');
     if (orderSelect) {
@@ -122,7 +142,11 @@ echo render_pagination($page ?? 1, $totalPages ?? 1, $limit ?? 10, $total ?? 0, 
       });
     }
 
-    // Handle appointment form submission with AJAX
+    // Submissão do formulário de agendamento via AJAX.
+    // Lógica: anula submit padrão, anexa `ajax=1`, desabilita botão
+    // com feedback visual, envia para `/agenda/create` e trata retorno.
+    // Em sucesso: fecha modal e recarrega (a view exibirá o modal de sucesso
+    // via flag de sessão). Em erro: exibe modal de conflito com a mensagem.
     const appointmentForm = document.getElementById('appointmentForm');
     if (appointmentForm) {
       appointmentForm.addEventListener('submit', function(e) {
@@ -265,8 +289,38 @@ echo render_pagination($page ?? 1, $totalPages ?? 1, $limit ?? 10, $total ?? 0, 
   });
 </script>
 
+<!-- Modal Sucesso de Agendamento -->
+<div class="modal fade" id="appointmentSuccessModal" tabindex="-1" aria-labelledby="appointmentSuccessModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="appointmentSuccessModalLabel">
+          <i class="fas fa-check-circle me-2"></i>Sucesso
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex align-items-center">
+          <div class="flex-shrink-0">
+            <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+          </div>
+          <div class="flex-grow-1 ms-3">
+            <h6 class="mb-2">Agendamento realizado com sucesso</h6>
+            <p class="mb-0 text-muted">A consulta foi cadastrada conforme as regras do sistema.</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-success" data-bs-dismiss="modal">
+          <i class="fas fa-check me-1"></i>OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Nova Consulta -->
-<div class="modal fade" id="agendaModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="agendaModal" tabindex="-1" aria-hidden="true" data-no-refresh="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header"><h5 class="modal-title">Agendar Consulta</h5>
@@ -305,14 +359,14 @@ echo render_pagination($page ?? 1, $totalPages ?? 1, $limit ?? 10, $total ?? 0, 
 </div>
 
 <!-- Modal de Conflito de Horário -->
-<div class="modal fade" id="conflictModal" tabindex="-1" aria-labelledby="conflictModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+<div class="modal fade" id="conflictModal" tabindex="-1" aria-labelledby="conflictModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" data-no-refresh="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-danger">
       <div class="modal-header bg-danger text-white">
         <h5 class="modal-title" id="conflictModalLabel">
           <i class="fas fa-exclamation-triangle me-2"></i>Conflito de Horário
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" id="conflictHeaderCloseBtn"></button>
       </div>
       <div class="modal-body">
         <div class="d-flex align-items-center mb-3">
@@ -331,7 +385,7 @@ echo render_pagination($page ?? 1, $totalPages ?? 1, $limit ?? 10, $total ?? 0, 
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="conflictCloseBtn">
           <i class="fas fa-times me-1"></i>Fechar
         </button>
         <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="this.dataset.reopenModal = 'true';">
@@ -434,6 +488,50 @@ echo render_pagination($page ?? 1, $totalPages ?? 1, $limit ?? 10, $total ?? 0, 
     </div>
   </div>
 </div>
+
+<script>
+  // Controle de recarga apenas após fechamento manual do modal de conflito
+  document.addEventListener('DOMContentLoaded', function() {
+    let conflictClosedManually = false;
+
+    const conflictModalEl = document.getElementById('conflictModal');
+    const conflictCloseBtn = document.getElementById('conflictCloseBtn');
+    const conflictHeaderCloseBtn = document.getElementById('conflictHeaderCloseBtn');
+
+    if (conflictCloseBtn) {
+      conflictCloseBtn.addEventListener('click', function() {
+        conflictClosedManually = true;
+      });
+    }
+
+    if (conflictHeaderCloseBtn) {
+      conflictHeaderCloseBtn.addEventListener('click', function() {
+        conflictClosedManually = true;
+      });
+    }
+
+    if (conflictModalEl) {
+      conflictModalEl.addEventListener('hidden.bs.modal', function() {
+        // Se usuário clicou em "Alterar Horário", reabre o modal de agendamento
+        const alterarBtn = this.querySelector('.btn-primary');
+        if (alterarBtn && alterarBtn.dataset.reopenModal) {
+          setTimeout(() => {
+            const agendaModal = new bootstrap.Modal(document.getElementById('agendaModal'));
+            agendaModal.show();
+          }, 300);
+          delete alterarBtn.dataset.reopenModal;
+          return;
+        }
+
+        // Se usuário fechou manualmente, recarrega a página
+        if (conflictClosedManually) {
+          conflictClosedManually = false; // reset flag
+          location.reload();
+        }
+      });
+    }
+  });
+</script>
         </button>
       </div>
     </div>

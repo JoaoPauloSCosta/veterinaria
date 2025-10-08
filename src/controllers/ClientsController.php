@@ -3,6 +3,7 @@ require_once __DIR__ . '/../middlewares/auth.php';
 require_once __DIR__ . '/../helpers/validation.php';
 require_once __DIR__ . '/../helpers/errors.php';
 require_once __DIR__ . '/../models/ClientModel.php';
+require_once __DIR__ . '/../models/PetModel.php';
 
 class ClientsController {
     /**
@@ -13,19 +14,25 @@ class ClientsController {
         require_login();
         require_role(['admin','recepcao','financeiro','veterinario']);
         $q = sanitize_string($_GET['q'] ?? '');
-        $success = sanitize_string($_GET['success'] ?? '');
+        // Mensagens via sessão para manter URL limpa
         $page = max(1, (int)($_GET['page'] ?? 1));
         $limit = 10;
         $offset = ($page - 1) * $limit;
         
-        $flash_success = '';
-        if ($success === 'created') { $flash_success = 'Cliente cadastrado com sucesso.'; }
-        if ($success === 'deleted') { $flash_success = 'Cliente excluido'; }
+        $flash_success = $_SESSION['client_success'] ?? '';
+        if ($flash_success !== '') { unset($_SESSION['client_success']); }
+
+        // Consumir (e limpar) flags de conflito de exclusão vindas via sessão
+        $linkedPets = $_SESSION['client_conflict_pets'] ?? [];
+        $conflict_client_id = $_SESSION['client_conflict_id'] ?? null;
+        $conflict_client_name = $_SESSION['client_conflict_name'] ?? null;
+        // Limpar após leitura para evitar reexibição após reload
+        unset($_SESSION['client_conflict_pets'], $_SESSION['client_conflict_id'], $_SESSION['client_conflict_name']);
         
         [$clients, $total] = ClientModel::paginate($q, $limit, $offset);
         $totalPages = ceil($total / $limit);
         
-        render('clients/index', compact('clients', 'q', 'total', 'flash_success', 'page', 'totalPages', 'limit'));
+        render('clients/index', compact('clients', 'q', 'total', 'flash_success', 'page', 'totalPages', 'limit', 'linkedPets', 'conflict_client_id', 'conflict_client_name'));
     }
 
     /**
@@ -58,7 +65,8 @@ class ClientsController {
         try {
             $id = ClientModel::create($data);
             audit_log($_SESSION['user']['id'] ?? null, 'client_create', 'clients', $id, json_encode($data));
-            header('Location: ' . APP_URL . '/clients?success=created');
+            $_SESSION['client_success'] = 'Cliente cadastrado com sucesso.';
+            header('Location: ' . APP_URL . '/clients');
         } catch (Throwable $e) {
             $q = '';
             [$clients, $total] = ClientModel::paginate('', 50, 0);
@@ -96,6 +104,7 @@ class ClientsController {
         try {
             ClientModel::update($id, $data);
             audit_log($_SESSION['user']['id'] ?? null, 'client_update', 'clients', $id, json_encode($data));
+            $_SESSION['client_success'] = 'Cliente atualizado com sucesso.';
             header('Location: ' . APP_URL . '/clients');
         } catch (Throwable $e) {
             $client = ClientModel::find($id);
@@ -112,9 +121,23 @@ class ClientsController {
         require_login();
         require_role(['admin']);
         csrf_validate();
+        // Verificar se o cliente possui pets associados; bloquear exclusão direta
+        $pets = PetModel::listByClient($id);
+        if (!empty($pets)) {
+            // Redirecionar para /clients com dados de conflito em sessão (flash)
+            $_SESSION['client_conflict_pets'] = $pets;
+            $_SESSION['client_conflict_id'] = $id;
+            // Buscar nome para mensagem informativa
+            $client = ClientModel::find($id);
+            $_SESSION['client_conflict_name'] = $client['name'] ?? null;
+            header('Location: ' . APP_URL . '/clients');
+            return;
+        }
+        // Sem pets vinculados: pode excluir
         ClientModel::delete($id);
         audit_log($_SESSION['user']['id'] ?? null, 'client_delete', 'clients', $id);
-        header('Location: ' . APP_URL . '/clients?success=deleted');
+        $_SESSION['client_success'] = 'Cliente excluído com sucesso.';
+        header('Location: ' . APP_URL . '/clients');
     }
 
     /**

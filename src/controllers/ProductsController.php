@@ -3,6 +3,7 @@ require_once __DIR__ . '/../middlewares/auth.php';
 require_once __DIR__ . '/../helpers/validation.php';
 require_once __DIR__ . '/../helpers/errors.php';
 require_once __DIR__ . '/../helpers/stock.php';
+require_once __DIR__ . '/../helpers/db.php';
 require_once __DIR__ . '/../models/ProductModel.php';
 
 class ProductsController {
@@ -21,8 +22,32 @@ class ProductsController {
         [$products, $total] = ProductModel::paginate($q, $limit, $offset);
         $totalPages = ceil($total / $limit);
         $low = ProductModel::lowStock();
+        $flash_error = $_SESSION['products_error'] ?? null; if ($flash_error) { unset($_SESSION['products_error']); }
+
+        // Filtros do relatório de movimentações
+        $mtype = sanitize_string($_GET['mtype'] ?? ''); // entrada|saida
+        $mreason = sanitize_string($_GET['reason_code'] ?? '');
+        $muserName = sanitize_string($_GET['user_name'] ?? '');
+        $mfrom = sanitize_string($_GET['from'] ?? '');
+        $mto = sanitize_string($_GET['to'] ?? '');
+        $pdo = DB::getConnection();
+        // Garantir que a tabela de movimentações tem os campos necessários
+        ensure_stock_movements_schema($pdo);
+        $where = [];
+        $params = [];
+        if (in_array($mtype, ['entrada','saida'], true)) { $where[] = 'sm.type = :type'; $params[':type'] = $mtype; }
+        if ($mreason !== '') { $where[] = 'sm.reason_code = :reason'; $params[':reason'] = $mreason; }
+        if ($muserName !== '') { $where[] = 'u.name LIKE :uname'; $params[':uname'] = '%'.$muserName.'%'; }
+        if ($mfrom !== '') { $where[] = 'sm.created_at >= :from'; $params[':from'] = $mfrom . ' 00:00:00'; }
+        if ($mto !== '') { $where[] = 'sm.created_at <= :to'; $params[':to'] = $mto . ' 23:59:59'; }
+        $sql = 'SELECT sm.*, p.name AS product_name, u.name AS user_name FROM stock_movements sm JOIN products p ON p.id = sm.product_id LEFT JOIN users u ON u.id = sm.user_id';
+        if ($where) { $sql .= ' WHERE ' . implode(' AND ', $where); }
+        $sql .= ' ORDER BY sm.created_at DESC LIMIT 50';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $movements = $stmt->fetchAll();
         
-        render('products/index', compact('products','q','total','low', 'page', 'totalPages', 'limit'));
+        render('products/index', compact('products','q','total','low','flash_error','movements','mtype','mreason','muserName','mfrom','mto', 'page', 'totalPages', 'limit'));
     }
 
     /**
@@ -110,9 +135,18 @@ class ProductsController {
         csrf_validate();
         $pid = (int)($_POST['product_id'] ?? 0);
         $qty = (int)($_POST['quantity'] ?? 0);
-        if ($pid > 0 && $qty > 0) {
-            stock_adjust($pid, $qty, 'entrada', 'Entrada manual', (int)$_SESSION['user']['id']);
-            audit_log($_SESSION['user']['id'] ?? null, 'stock_entry', 'products', $pid, 'qty='.$qty);
+        $reasonCode = trim($_POST['reason_code'] ?? '');
+        $notes = sanitize_string($_POST['notes'] ?? '');
+        $batch = sanitize_string($_POST['batch'] ?? '');
+        if ($pid <= 0 || $qty <= 0 || $reasonCode === '' || !validate_stock_reason('entrada', $reasonCode)) {
+            $_SESSION['products_error'] = 'Movimentação inválida: selecione um motivo válido e informe quantidade.';
+            header('Location: ' . APP_URL . '/products');
+            return;
+        }
+        if (stock_adjust($pid, $qty, 'entrada', $reasonCode, (int)$_SESSION['user']['id'], $notes ?: null, $batch ?: null)) {
+            audit_log($_SESSION['user']['id'] ?? null, 'stock_entry', 'products', $pid, 'qty='.$qty.';reason='.$reasonCode);
+        } else {
+            $_SESSION['products_error'] = 'Falha ao registrar a entrada de estoque.';
         }
         header('Location: ' . APP_URL . '/products');
     }
@@ -127,9 +161,18 @@ class ProductsController {
         csrf_validate();
         $pid = (int)($_POST['product_id'] ?? 0);
         $qty = (int)($_POST['quantity'] ?? 0);
-        if ($pid > 0 && $qty > 0) {
-            stock_adjust($pid, $qty, 'saida', 'Saída manual', (int)$_SESSION['user']['id']);
-            audit_log($_SESSION['user']['id'] ?? null, 'stock_exit', 'products', $pid, 'qty='.$qty);
+        $reasonCode = trim($_POST['reason_code'] ?? '');
+        $notes = sanitize_string($_POST['notes'] ?? '');
+        $batch = sanitize_string($_POST['batch'] ?? '');
+        if ($pid <= 0 || $qty <= 0 || $reasonCode === '' || !validate_stock_reason('saida', $reasonCode)) {
+            $_SESSION['products_error'] = 'Movimentação inválida: selecione um motivo válido e informe quantidade.';
+            header('Location: ' . APP_URL . '/products');
+            return;
+        }
+        if (stock_adjust($pid, $qty, 'saida', $reasonCode, (int)$_SESSION['user']['id'], $notes ?: null, $batch ?: null)) {
+            audit_log($_SESSION['user']['id'] ?? null, 'stock_exit', 'products', $pid, 'qty='.$qty.';reason='.$reasonCode);
+        } else {
+            $_SESSION['products_error'] = 'Falha ao registrar a saída de estoque.';
         }
         header('Location: ' . APP_URL . '/products');
     }

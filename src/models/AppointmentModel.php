@@ -21,6 +21,19 @@ class AppointmentModel {
     }
 
     /**
+     * Lista agendamentos futuros (a partir de agora) para um veterinário específico.
+     * Considera apenas status ativos (agendada/confirmada).
+     * Retorna array com dados do agendamento, incluindo pet e veterinário.
+     */
+    public static function listFutureByVet(int $vetId): array {
+        $pdo = DB::getConnection();
+        $sql = "SELECT a.*, p.name AS pet_name, u.name AS vet_name \n                FROM appointments a \n                JOIN pets p ON p.id=a.pet_id \n                JOIN users u ON u.id=a.vet_id \n                WHERE a.vet_id = :vet \n                  AND a.status IN ('agendada','confirmada') \n                  AND a.start_time >= NOW() \n                ORDER BY a.start_time ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':vet' => $vetId]);
+        return $stmt->fetchAll();
+    }
+
+    /**
      * Verifica se existe conflito de horário para veterinário ou sala
      * Considera agendamentos ativos (agendada/confirmada) no mesmo período
      */

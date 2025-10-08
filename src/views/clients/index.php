@@ -10,9 +10,7 @@
 <?php if (!empty($flash_error)): ?>
   <div class="alert alert-danger"><?= e($flash_error) ?></div>
 <?php endif; ?>
-<?php if (!empty($flash_success)): ?>
-  <div class="alert alert-success" role="alert" data-autohide="true"><?= e($flash_success) ?></div>
-<?php endif; ?>
+<?php /* Sucesso exibido via modal; removido alerta para padronização com Veterinários */ ?>
 <form class="row g-2 mb-3" method="get" action="<?= e(APP_URL) ?>/clients">
   <div class="col-auto">
     <input type="text" class="form-control" name="q" placeholder="Buscar por nome, email ou CPF" value="<?= e($q ?? '') ?>">
@@ -40,10 +38,9 @@
           <div class="d-inline-flex align-items-center gap-1">
             <a class="btn btn-sm btn-info" href="<?= e(APP_URL) ?>/pets?client_id=<?= e($c['id']) ?>"><i class="fa-solid fa-paw"></i> Pets</a>
             <button class="btn btn-sm btn-secondary" data-bs-toggle="modal" data-bs-target="#clientModalEdit<?= e($c['id']) ?>"><i class="fa-regular fa-pen-to-square"></i> Editar</button>
-            <form action="<?= e(APP_URL) ?>/clients/<?= e($c['id']) ?>/delete" method="post" class="d-inline m-0" onsubmit="return confirm('Excluir cliente?');">
-              <?= csrf_input() ?>
-              <button class="btn btn-sm btn-danger"><i class="fa-regular fa-trash-can"></i> Excluir</button>
-            </form>
+            <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#clientDeleteConfirmModal" data-client-id="<?= e($c['id']) ?>" data-client-name="<?= e($c['name']) ?>">
+              <i class="fa-regular fa-trash-can"></i> Excluir
+            </button>
           </div>
       </tr>
       <?php ob_start(); ?>
@@ -153,6 +150,24 @@
 
 <?= $modals ?>
 
+<script>
+  // Preencher e abrir modal de confirmação de exclusão
+  document.addEventListener('DOMContentLoaded', function(){
+    var deleteModal = document.getElementById('clientDeleteConfirmModal');
+    if (deleteModal) {
+      deleteModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        if (!button) return;
+        var clientId = button.getAttribute('data-client-id');
+        var clientName = button.getAttribute('data-client-name') || '';
+        deleteModal.querySelector('[data-client-name-target]').textContent = clientName;
+        var form = deleteModal.querySelector('form');
+        form.setAttribute('action', '<?= e(APP_URL) ?>/clients/' + clientId + '/delete');
+      });
+    }
+  });
+</script>
+
 <!-- Modal Novo Cliente -->
 <div class="modal fade" id="clientModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -194,3 +209,90 @@
     </div>
   </div>
 </div>
+
+<!-- Modal de Sucesso (Cliente) -->
+<div class="modal fade" id="clientSuccessModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="fa-regular fa-circle-check me-2"></i>Operação concluída</h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0"><?= e($flash_success ?? '') ?></p>
+      </div>
+      <div class="modal-footer"><button class="btn btn-success" data-bs-dismiss="modal">OK</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Confirmar Exclusão de Cliente -->
+<div class="modal fade" id="clientDeleteConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="fa-regular fa-trash-can me-2"></i>Confirmar exclusão</h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Tem certeza que deseja excluir o cliente <strong data-client-name-target></strong>?</p>
+        <p class="text-muted mb-0">Essa ação é permanente e não pode ser desfeita.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form method="post" action="#">
+          <?= csrf_input() ?>
+          <button class="btn btn-danger">Excluir</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Conflito: Cliente possui Pets vinculados -->
+<?php if (!empty($linkedPets ?? []) && !empty($conflict_client_id ?? null)): ?>
+<div class="modal fade" id="clientConflictModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title"><i class="fa-solid fa-ban me-2"></i>Exclusão não permitida</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>O cliente <strong><?= e($conflict_client_name ?? '') ?></strong> possui pets vinculados e não pode ser excluído.</p>
+        <p class="text-muted">Para prosseguir, remova ou transfira os pets associados antes de tentar excluir o cliente.</p>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped align-middle">
+            <thead><tr><th>#</th><th>Pet</th><th>Espécie</th><th>Raça</th></tr></thead>
+            <tbody>
+              <?php foreach (($linkedPets ?? []) as $lp): ?>
+                <tr>
+                  <td><?= e($lp['id']) ?></td>
+                  <td><?= e($lp['name'] ?? '') ?></td>
+                  <td><?= e($lp['species'] ?? '') ?></td>
+                  <td><?= e($lp['breed'] ?? '') ?></td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+        <a class="btn btn-primary" href="<?= e(APP_URL) ?>/pets?client_id=<?= e($conflict_client_id ?? 0) ?>">Ver pets do cliente</a>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  // Autoabrir modais de sucesso e conflito
+  document.addEventListener('DOMContentLoaded', function(){
+    <?php if (!empty($flash_success ?? '')): ?>
+      var smEl = document.getElementById('clientSuccessModal');
+      if (smEl) { (new bootstrap.Modal(smEl)).show(); }
+    <?php endif; ?>
+    var cmEl = document.getElementById('clientConflictModal');
+    if (cmEl) { (new bootstrap.Modal(cmEl)).show(); }
+  });
+</script>
+<?php endif; ?>

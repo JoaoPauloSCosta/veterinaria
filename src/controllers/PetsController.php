@@ -14,14 +14,13 @@ class PetsController {
         require_login();
         require_role(['admin','recepcao','veterinario']);
         $q = sanitize_string($_GET['q'] ?? '');
-        $success = sanitize_string($_GET['success'] ?? '');
+        // Mensagens via sessão para manter URL limpa
         $page = max(1, (int)($_GET['page'] ?? 1));
         $limit = 10;
         $offset = ($page - 1) * $limit;
         
-        $flash_success = '';
-        if ($success === 'created') { $flash_success = 'Pet cadastrado com sucesso.'; }
-        if ($success === 'deleted') { $flash_success = 'Pet excluído'; }
+        $flash_success = $_SESSION['pet_success'] ?? '';
+        if ($flash_success !== '') { unset($_SESSION['pet_success']); }
         
         [$pets, $total] = PetModel::paginate($q, $limit, $offset);
         $totalPages = ceil($total / $limit);
@@ -67,7 +66,8 @@ class PetsController {
         }
         $id = PetModel::create($data);
         audit_log($_SESSION['user']['id'] ?? null, 'pet_create', 'pets', $id, json_encode($data));
-        header('Location: ' . APP_URL . '/pets?success=created');
+        $_SESSION['pet_success'] = 'Pet cadastrado com sucesso.';
+        header('Location: ' . APP_URL . '/pets');
     }
 
     /**
@@ -100,6 +100,7 @@ class PetsController {
         }
         PetModel::update($id, $data);
         audit_log($_SESSION['user']['id'] ?? null, 'pet_update', 'pets', $id, json_encode($data));
+        $_SESSION['pet_success'] = 'Pet atualizado com sucesso.';
         header('Location: ' . APP_URL . '/pets');
     }
 
@@ -113,6 +114,7 @@ class PetsController {
         csrf_validate();
         PetModel::delete($id);
         audit_log($_SESSION['user']['id'] ?? null, 'pet_delete', 'pets', $id);
-        header('Location: ' . APP_URL . '/pets?success=deleted');
+        $_SESSION['pet_success'] = 'Pet excluído com sucesso.';
+        header('Location: ' . APP_URL . '/pets');
     }
 }

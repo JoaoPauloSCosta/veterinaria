@@ -8,9 +8,7 @@
 <?php if (!empty($flash_error)): ?>
   <div class="alert alert-danger" role="alert" data-autohide="true"><?= e($flash_error) ?></div>
 <?php endif; ?>
-<?php if (!empty($flash_success)): ?>
-  <div class="alert alert-success" role="alert" data-autohide="true"><?= e($flash_success) ?></div>
-<?php endif; ?>
+<?php /* Sucesso será exibido via modal abaixo; removemos o alerta visual */ ?>
 <form class="row g-2 mb-3" method="get" action="<?= e(APP_URL) ?>/veterinarians">
   <div class="col-auto">
     <input type="text" class="form-control" name="q" placeholder="Buscar por nome ou email" value="<?= e($q ?? '') ?>">
@@ -42,10 +40,12 @@
         <td class="text-end">
           <div class="d-inline-flex align-items-center gap-1">
             <button class="btn btn-sm btn-secondary" data-bs-toggle="modal" data-bs-target="#vetModalEdit<?= e($v['id']) ?>"><i class="fa-regular fa-pen-to-square"></i> Editar</button>
-            <form action="<?= e(APP_URL) ?>/veterinarians/<?= e($v['id']) ?>/delete" method="post" class="d-inline m-0" onsubmit="return confirm('Excluir veterinário?');">
-              <?= csrf_input() ?>
-              <button class="btn btn-sm btn-danger"><i class="fa-regular fa-trash-can"></i> Excluir</button>
-            </form>
+            <button type="button"
+                    class="btn btn-sm btn-danger btn-delete-vet"
+                    data-action="<?= e(APP_URL) ?>/veterinarians/<?= e($v['id']) ?>/delete"
+                    data-vet-name="<?= e($v['name']) ?>">
+              <i class="fa-regular fa-trash-can"></i> Excluir
+            </button>
           </div>
         </td>
       </tr>
@@ -61,7 +61,8 @@
                 <div class="row g-3">
                   <div class="col-md-6"><label class="form-label">Nome</label><input name="name" class="form-control" required value="<?= e($v['name']) ?>"></div>
                   <div class="col-md-6"><label class="form-label">Email</label><input type="email" name="email" class="form-control" required value="<?= e($v['email']) ?>"></div>
-                  <div class="col-md-6"><label class="form-label">Senha (opcional)</label><input type="password" name="password" class="form-control" placeholder="Mín. 6 caracteres"></div>
+                  <div class="col-md-6"><label class="form-label">Senha (opcional)</label><input type="password" name="password" class="form-control" placeholder="Mín. 6 caracteres"><small class="text-muted">*Deixe o campo em branco para manter a senha atual.</small></div>
+                       
                   <div class="col-md-6 d-flex align-items-center"><div class="form-check mt-4">
                      <input class="form-check-input" type="checkbox" name="is_active" id="vetActive<?= e($v['id']) ?>" <?= !empty($v['is_active']) ? 'checked' : '' ?>>
                      <label class="form-check-label" for="vetActive<?= e($v['id']) ?>">Ativo</label>
@@ -104,14 +105,181 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.alert[data-autohide="true"]').forEach(function(el){
+    // INTERCEPTAR E BLOQUEAR QUALQUER POPUP DE CONFIRMAÇÃO
+    // Sobrescrever funções globais para evitar popups
+    window.confirm = function(message) {
+      console.log('Popup bloqueado:', message);
+      return false; // Sempre retorna false para cancelar ações
+    };
+    
+    window.alert = function(message) {
+      console.log('Alert bloqueado:', message);
+      return false;
+    };
+
+    // Autohide apenas para alertas de erro, já que sucesso vai para modal
+    document.querySelectorAll('.alert.alert-danger[data-autohide="true"]').forEach(function(el){
       setTimeout(function(){ el.classList.add('d-none'); }, 5000);
     });
+
+    // Modal de confirmação de exclusão
+    var deleteModalEl = document.getElementById('vetDeleteConfirmModal');
+    var deleteModal = deleteModalEl ? new bootstrap.Modal(deleteModalEl) : null;
+    var deleteForm = document.getElementById('vetDeleteForm');
+    var pendingDeleteAction = null;
+
+    // Interceptar TODOS os cliques em botões de exclusão
+    document.addEventListener('click', function(e) {
+      // Verificar se é um botão de exclusão de veterinário
+      if (e.target.classList.contains('btn-delete-vet') || 
+          e.target.closest('.btn-delete-vet')) {
+        
+        e.preventDefault(); // Impedir ação padrão
+        e.stopPropagation(); // Impedir propagação
+        
+        var btn = e.target.classList.contains('btn-delete-vet') ? 
+                  e.target : e.target.closest('.btn-delete-vet');
+        
+        var name = btn.getAttribute('data-vet-name') || '';
+        var action = btn.getAttribute('data-action') || '';
+        pendingDeleteAction = action;
+        var nameEl = document.getElementById('confirmVetName');
+        if (nameEl) { nameEl.textContent = name; }
+        if (deleteModal) { deleteModal.show(); }
+        
+        return false;
+      }
+    }, true); // Usar capture para interceptar antes de outros handlers
+
+    var confirmBtn = document.getElementById('btnConfirmDeleteVet');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function(){
+        if (deleteForm && pendingDeleteAction) {
+          deleteForm.setAttribute('action', pendingDeleteAction);
+          deleteForm.submit();
+        }
+      });
+    }
+
+    // Modal de sucesso: criado/excluído
+    var successMsg = <?= isset($flash_success) && $flash_success ? json_encode($flash_success, JSON_UNESCAPED_UNICODE) : 'null' ?>;
+    if (successMsg) {
+      var successModalEl = document.getElementById('vetSuccessModal');
+      var successModal = successModalEl ? new bootstrap.Modal(successModalEl) : null;
+      var msgEl = document.getElementById('vetSuccessMessage');
+      if (msgEl) { msgEl.textContent = successMsg; }
+      if (successModal) { successModal.show(); }
+    }
+
+    // Exibir o popup de conflito também quando houver erro geral na exclusão
+    var errorMsg = <?= isset($flash_error) && $flash_error ? json_encode($flash_error, JSON_UNESCAPED_UNICODE) : 'null' ?>;
+    if (errorMsg) {
+      var conflictModalElErr = document.getElementById('vetConflictModal');
+      var conflictModalErr = conflictModalElErr ? new bootstrap.Modal(conflictModalElErr) : null;
+      if (conflictModalErr) {
+        conflictModalErr.show();
+        // Garantir visibilidade por 10s: desabilitar botões de fechar temporariamente
+        var headerCloseBtnErr = document.getElementById('vetConflictCloseHeaderBtn');
+        var footerCloseBtnErr = document.getElementById('vetConflictCloseBtn');
+        [headerCloseBtnErr, footerCloseBtnErr].forEach(function(btn){ if (btn) btn.disabled = true; });
+        setTimeout(function(){
+          [headerCloseBtnErr, footerCloseBtnErr].forEach(function(btn){ if (btn) btn.disabled = false; });
+        }, 10000);
+      }
+    }
+
+    // Modal de conflitos de agendamentos futuros (abrir somente após tentativa de exclusão)
+    var conflicts = <?= isset($futureAppointments) && is_array($futureAppointments) && count($futureAppointments) > 0 ? json_encode($futureAppointments, JSON_UNESCAPED_UNICODE) : '[]' ?>;
+    // Usa a flag vinda do controller (showConflictModal) para decidir abertura
+    var vetConflictShow = <?= !empty($showConflictModal) ? 'true' : 'false' ?>;
+    if (vetConflictShow && conflicts.length > 0) {
+      var conflictModalEl = document.getElementById('vetConflictModal');
+      var conflictModal = conflictModalEl ? new bootstrap.Modal(conflictModalEl) : null;
+      if (conflictModal) {
+        conflictModal.show();
+        // Manter visível por 10s: desabilitar botões de fechar temporariamente
+        var headerCloseBtn = document.getElementById('vetConflictCloseHeaderBtn');
+        var footerCloseBtn = document.getElementById('vetConflictCloseBtn');
+        [headerCloseBtn, footerCloseBtn].forEach(function(btn){ if (btn) btn.disabled = true; });
+        setTimeout(function(){
+          [headerCloseBtn, footerCloseBtn].forEach(function(btn){ if (btn) btn.disabled = false; });
+        }, 10000);
+      }
+    }
   });
 </script>
 
 <?= $modals ?>
 
+<!-- Modal de Confirmação de Exclusão (reutilizável) -->
+<div class="modal fade" id="vetDeleteConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="fa-regular fa-trash-can me-2"></i>Confirmar exclusão</h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Tem certeza que deseja excluir o veterinário <strong id="confirmVetName"></strong>?</p>
+        <p class="text-muted mb-0">Esta ação é irreversível.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmDeleteVet">Excluir</button>
+      </div>
+    </div>
+  </div>
+  <!-- Formulário oculto usado para submissão da exclusão com CSRF -->
+  <form id="vetDeleteForm" method="post" action="" class="d-none">
+    <?= csrf_input() ?>
+  </form>
+  
+</div>
+
+<!-- Modal de Sucesso (criação/exclusão) -->
+<div class="modal fade" id="vetSuccessModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="fa-regular fa-circle-check me-2"></i>Operação concluída</h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p id="vetSuccessMessage" class="mb-0"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-success" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
+  
+</div>
+
+<!-- Modal Conflito: Veterinário possui agendamentos vinculados -->
+<div class="modal fade" id="vetConflictModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" data-no-refresh="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title"><i class="fa-solid fa-ban me-2"></i>Exclusão não permitida</h5>
+        <button class="btn-close" data-bs-dismiss="modal" id="vetConflictCloseHeaderBtn"></button>
+      </div>
+      <div class="modal-body">
+        <div>
+          <p class="mb-1">O veterinário selecionado não pode ser excluído pois:</p>
+          <ul class="mb-0">
+            <li>Possui agendamentos em aberto em seu nome</li>
+            <li>Ou está cadastrado como ativo no sistema</li>
+          </ul>
+          <p class="mt-2 mb-0">Verifique essas condições e tente novamente.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="vetConflictCloseBtn">Fechar</button>
+        <a class="btn btn-primary" href="<?= e(APP_URL) ?>/agenda?vet=<?= e($conflict_vet_id ?? 0) ?>" id="viewVetSchedule">Ver agenda do veterinário</a>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- Modal Novo Veterinário -->
 <div class="modal fade" id="vetModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">

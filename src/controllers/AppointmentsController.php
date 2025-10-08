@@ -10,8 +10,23 @@ require_once __DIR__ . '/../helpers/pagination.php';
 
 class AppointmentsController {
     /**
-     * Exibe a página principal de agendamentos com filtros e paginação
-     * Carrega lista de agendamentos, veterinários e pets para o formulário
+     * Exibe a página principal de agendamentos.
+     * 
+     * Lógica: valida autenticação; calcula paginação (page, limit, offset);
+     * coleta filtros opcionais (de/até, veterinário, ordenação) e delega
+     * para `AppointmentModel::paginate` obter itens e total. Carrega lista
+     * de veterinários para o filtro/formulário e renderiza a view
+     * `appointments/index` com todos os dados necessários.
+     * 
+     * Parâmetros (via GET):
+     * - `page` (int, opcional): página atual; padrão 1.
+     * - `from` (string, opcional): data inicial para filtrar.
+     * - `to` (string, opcional): data final para filtrar.
+     * - `vet` (int, opcional): ID do veterinário.
+     * - `order` (string, opcional): `ASC` ou `DESC`; padrão `DESC`.
+     * 
+     * Resultado: renderiza a página com a lista de agendamentos, total,
+     * paginação e filtros aplicados.
      */
     public function index(): void {
         require_login();
@@ -30,7 +45,8 @@ class AppointmentsController {
         $total = $result['total'] ?? 0;
         $totalPages = ceil($total / $limit);
         
-        $veterinarians = UserModel::listByRole('veterinario');
+        // Carregar lista completa de veterinários (ativos e inativos)
+        $veterinarians = UserModel::listByRole('veterinario', true);
         
         render('appointments/index', [
             'appointments' => $appointments,
@@ -57,8 +73,32 @@ class AppointmentsController {
     }
 
     /**
-     * Cria novo agendamento com validação de conflitos de horário
-     * Gera notificações automáticas e suporta requisições AJAX
+     * Cria novo agendamento.
+     * 
+     * Lógica: valida campos obrigatórios; verifica conflito de horário via
+     * `AppointmentModel::hasConflict`. Em caso de conflito, retorna erro
+     * via sessão e redireciona para `/agenda`, ou responde JSON quando
+     * `ajax` === '1'. Quando não há conflito, persiste o agendamento,
+     * busca dados do pet/cliente para gerar notificação por meio de
+     * `NotificationModel::createAppointmentNotification`, e então define
+     * a flag de sessão específica `$_SESSION['appointment_success'] = true`
+     * para acionar o modal verde de confirmação apenas na criação.
+     * Por fim, responde em JSON (quando AJAX) ou redireciona para `/agenda`.
+     * 
+     * Parâmetros (via POST):
+     * - `pet_id` (int): ID do pet agendado.
+     * - `vet_id` (int): ID do veterinário responsável.
+     * - `start_time` (string): data/hora inicial (formato compatível com `strtotime`).
+     * - `end_time` (string): data/hora final.
+     * - `room` (string, opcional): sala/box do atendimento.
+     * - `notes` (string, opcional): observações do agendamento.
+     * - `ajax` (string, opcional): quando `'1'`, retorna resposta JSON.
+     * 
+     * Resultado esperado:
+     * - Sucesso: define `appointment_success`, cria notificação e redireciona
+     *   para `/agenda`, ou retorna `{success: true, message}` em AJAX.
+     * - Erro: popula `$_SESSION['error']` e redireciona, ou retorna
+     *   `{success: false, error}` em AJAX.
      */
     public function create(): void {
         require_login();
@@ -140,7 +180,8 @@ class AppointmentsController {
                     );
                 }
                 
-                $_SESSION['success'] = 'Agendamento criado com sucesso!';
+                // Flag específica para modal de sucesso de criação de agendamento
+                $_SESSION['appointment_success'] = true;
                 
                 // Retornar sucesso em formato JSON para ser capturado pelo JavaScript
                 if (isset($_POST['ajax']) && $_POST['ajax'] === '1') {
@@ -179,8 +220,23 @@ class AppointmentsController {
     }
 
     /**
-     * Cancela agendamento existente com validações de status
-     * Suporta requisições AJAX e retorna mensagens apropriadas
+     * Cancela agendamento existente.
+     * 
+     * Lógica: obtém o `id` (parâmetro ou `POST['id']`); busca o agendamento
+     * e valida seu status. Em caso de inexistência ou já cancelado, retorna
+     * erro (sessão/JSON). Se o cancelamento ocorrer, retorna sucesso via
+     * `$_SESSION['success']` ou JSON. Esta ação não utiliza a flag
+     * `appointment_success`, evitando exibir o modal de criação.
+     * 
+     * Parâmetros:
+     * - `id` (int|null): ID do agendamento a cancelar; quando `null`, será
+     *   lido de `POST['id']`.
+     * 
+     * Resultado esperado:
+     * - Sucesso: define `$_SESSION['success']` com mensagem e retorna `{success: true}`
+     *   em AJAX.
+     * - Erro: define `$_SESSION['error']` com mensagem apropriada e retorna
+     *   `{success: false, error}` em AJAX.
      */
     public function cancel(int $id = null): void {
         require_login();

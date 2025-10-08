@@ -54,7 +54,14 @@ if (isset($_SESSION['user'])) {
       <!-- Área direita: notificações, nome do usuário e sair -->
       <ul class="navbar-nav ms-lg-auto align-items-lg-center">
         <?php if ($user): ?>
-          <!-- Sino de Notificações -->
+          <!--
+            Sino de Notificações
+            Estrutura do dropdown:
+            - `notifications-menu` (classe adicionada): aplica largura, altura máxima e esconde overflow-x
+              conforme regras em `public/assets/css/style.css` para eliminar scroll lateral.
+            - `notification-badge`: badge com contagem não lida, escondido quando 0.
+            - `#notifications-list`: container onde o JS injeta os itens renderizados.
+          -->
           <li class="nav-item dropdown me-3">
             <a class="nav-link position-relative" href="#" id="notificationsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               <i class="fa-regular fa-bell fs-5"></i>
@@ -62,12 +69,15 @@ if (isset($_SESSION['user'])) {
                 <?= $unreadCount ?>
               </span>
             </a>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationsDropdown" style="width: 350px; max-height: 400px; overflow-y: auto;">
+            <!-- A classe `notifications-menu` garante layout compacto sem scroll horizontal -->
+            <ul class="dropdown-menu dropdown-menu-end notifications-menu" aria-labelledby="notificationsDropdown" style="width: 350px; max-height: 400px; overflow-y: auto; overflow-x: hidden;">
               <li class="dropdown-header d-flex justify-content-between align-items-center">
                 <span>Notificações</span>
+                <!-- Botão controlado por JS (NotificationManager.markAllAsRead) -->
                 <button id="mark-all-read" class="btn btn-sm btn-outline-primary" style="font-size: 0.7rem;">Marcar todas como lidas</button>
               </li>
               <li><hr class="dropdown-divider"></li>
+              <!-- Container preenchido dinamicamente por `NotificationManager.renderNotifications` -->
               <div id="notifications-list">
                 <li class="dropdown-item text-center text-muted">Carregando...</li>
               </div>

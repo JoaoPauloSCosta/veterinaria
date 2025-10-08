@@ -1,0 +1,57 @@
+/*
+  Notificações - layout compacto e sem scroll horizontal
+  Objetivo: garantir leitura sem rolagem lateral e preservar hierarquia visual.
+*/
+.notifications-menu {
+  /*
+    Container do dropdown de notificações.
+    - Largura definida para evitar linhas muito longas.
+    - Altura máxima com rolagem vertical (overflow-y) para listas extensas.
+    - overflow-x: hidden elimina qualquer scroll horizontal.
+  */
+  width: 330px;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+#notifications-list .notification-item {
+  /*
+    Quebras de linha e palavras longas:
+    - white-space: normal permite quebra automática.
+    - word-wrap/overflow-wrap força quebra de termos extensos.
+    Resultado: nenhuma linha excede a largura, evitando scroll lateral.
+  */
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+#notifications-list .notification-item h6 {
+  /* Título da notificação (mais chamativo, porém compacto). */
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+#notifications-list .notification-item p {
+  /* Mensagem secundária (menor, maior densidade de informação). */
+  font-size: 0.85rem;
+  line-height: 1.25;
+  margin-bottom: 0.35rem;
+}
+
+#notifications-list .notification-item small {
+  /* Metadados (data/hora) com hierarquia visual mais discreta). */
+  font-size: 0.75rem;
+}
+
+#notifications-list .mark-read-btn {
+  /* Botão de marcar como lida; menor para caber ao lado do conteúdo. */
+  font-size: 0.75rem;
+  padding: 2px 6px;
+}
+
+/* Ajuste fino do badge do sino de notificações: 5px para baixo */
+#notification-badge {
+  top: 5px !important;
+}
